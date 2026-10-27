@@ -1,7 +1,8 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import useSWR from 'swr'
+import { refreshAgeMinutes } from '@/lib/format'
 import { getAccessToken, useGoogleSession } from '@/lib/google-auth'
 import { fetchSnapshots } from '@/lib/market'
 import {
@@ -18,6 +19,9 @@ import { forgetWorkbook, getWorkbook, getWorkbookFresh } from '@/lib/workbook'
 import { derivePosition, type PositionUserPatch, type WatchlistSnapshot } from '@/lib/watchlist'
 
 export type SyncStatus = 'idle' | 'saving' | 'saved' | 'refreshing' | 'error'
+
+const AUTO_REFRESH_AFTER_MINUTES = 24 * 60
+const autoRefreshedUsers = new Set<string>()
 
 type SyncState = {
   status: SyncStatus
@@ -36,6 +40,7 @@ const emptySnapshot: WatchlistSnapshot = {
   spreadsheetId: '',
   spreadsheetUrl: '',
   positions: [],
+  history: {},
   lastRefresh: null,
 }
 
@@ -89,6 +94,19 @@ export function useWatchlist() {
       throw caught
     }
   }
+
+  useEffect(() => {
+    if (!user || !data) return
+    if (autoRefreshedUsers.has(user.sub)) return
+    if (data.positions.length === 0) return
+    const age = refreshAgeMinutes(data.lastRefresh)
+    if (age !== null && age < AUTO_REFRESH_AFTER_MINUTES) return
+    autoRefreshedUsers.add(user.sub)
+    void run(
+      () => withWorkbook(user.sub, (token, ref) => refreshQuotes(token, ref)),
+      'refreshing',
+    )
+  }, [user, data])
 
   return {
     snapshot,
@@ -154,6 +172,8 @@ export function useWatchlist() {
 }
 
 export function clearWatchlistSession(userSub?: string) {
+  if (userSub) autoRefreshedUsers.delete(userSub)
+  else autoRefreshedUsers.clear()
   forgetWorkbook(userSub)
   setSyncState({ status: 'idle', message: null })
 }

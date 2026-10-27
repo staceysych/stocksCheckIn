@@ -45,10 +45,10 @@ export function SignInView() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto flex min-h-dvh w-full max-w-[90rem] flex-col px-4 py-6 sm:px-6 sm:py-10">
       <header className="flex items-center gap-2.5">
         <Mark />
-        <h1 className="text-lg font-medium tracking-tight">Watchlist</h1>
+        <h1 className="text-base font-medium tracking-tight">Watchlist</h1>
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center gap-8 py-16 text-center">
@@ -91,7 +91,7 @@ export function Mark({ className }: { className?: string }) {
 function SetupInstructions() {
   return (
     <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 text-left">
-      <h3 className="text-sm font-medium">Connect a Google Cloud client ID</h3>
+      <h3 className="text-base font-medium">Connect a Google Cloud client ID</h3>
       <ol className="mt-3 flex list-decimal flex-col gap-2 pl-4 text-sm leading-relaxed text-muted-foreground">
         <li>
           Create a project in{' '}

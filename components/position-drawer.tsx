@@ -5,8 +5,8 @@ import { Loader2, X } from 'lucide-react'
 import { formatCompact, formatDate, formatNumber, formatPct, formatPrice } from '@/lib/format'
 import {
   INTENT_LABEL,
-  defaultIntent,
   exclusiveLimits,
+  normalizeIntent,
   intentClass,
   showBuyLimits,
   showSellLimits,
@@ -42,9 +42,9 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
   const { updateTicker, removeTicker } = useWatchlist()
   const [name, setName] = useState('')
   const [target, setTarget] = useState('')
-  const [target2, setTarget2] = useState('')
+  const [buyUpTo, setBuyUpTo] = useState('')
   const [sell, setSell] = useState('')
-  const [sell2, setSell2] = useState('')
+  const [sellUpTo, setSellUpTo] = useState('')
   const [idea, setIdea] = useState('')
   const [owned, setOwned] = useState(false)
   const [shares, setShares] = useState('')
@@ -57,9 +57,9 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
     if (!position) return
     setName(position.name)
     setTarget(position.target === null ? '' : String(position.target))
-    setTarget2(position.target2 === null ? '' : String(position.target2))
+    setBuyUpTo(position.buyUpTo === null ? '' : String(position.buyUpTo))
     setSell(position.sell === null ? '' : String(position.sell))
-    setSell2(position.sell2 === null ? '' : String(position.sell2))
+    setSellUpTo(position.sellUpTo === null ? '' : String(position.sellUpTo))
     setIdea(position.idea)
     setOwned(position.owned)
     setShares(position.shares === null ? '' : String(position.shares))
@@ -74,15 +74,17 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
   const nextShares = owned ? parseOptionalNumber(shares) : null
   const nextCost = owned ? parseOptionalNumber(cost) : null
   const leftoverLimits =
-    (!showBuyLimits(intent) && (position.target !== null || position.target2 !== null)) ||
-    (!showSellLimits(intent) && (position.sell !== null || position.sell2 !== null))
+    (!showBuyLimits(intent) && (position.target !== null || position.target2 !== null || position.buyUpTo !== null)) ||
+    (!showSellLimits(intent) && (position.sell !== null || position.sell2 !== null || position.sellUpTo !== null)) ||
+    position.target2 !== null ||
+    position.sell2 !== null
   const dirty =
     name.trim() !== position.name ||
     idea.trim() !== position.idea ||
     (showBuyLimits(intent) && numberDirty(target, position.target)) ||
-    (showBuyLimits(intent) && numberDirty(target2, position.target2)) ||
+    (showBuyLimits(intent) && numberDirty(buyUpTo, position.buyUpTo)) ||
     (showSellLimits(intent) && numberDirty(sell, position.sell)) ||
-    (showSellLimits(intent) && numberDirty(sell2, position.sell2)) ||
+    (showSellLimits(intent) && numberDirty(sellUpTo, position.sellUpTo)) ||
     leftoverLimits ||
     owned !== position.owned ||
     nextShares !== position.shares ||
@@ -92,25 +94,25 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
   const onSave = async (event: FormEvent) => {
     event.preventDefault()
     const parsedTarget = showBuyLimits(intent) ? parseOptionalNumber(target) : null
-    const parsedTarget2 = showBuyLimits(intent) ? parseOptionalNumber(target2) : null
+    const parsedBuyUpTo = showBuyLimits(intent) ? parseOptionalNumber(buyUpTo) : null
     const parsedSell = showSellLimits(intent) ? parseOptionalNumber(sell) : null
-    const parsedSell2 = showSellLimits(intent) ? parseOptionalNumber(sell2) : null
+    const parsedSellUpTo = showSellLimits(intent) ? parseOptionalNumber(sellUpTo) : null
     const parsedShares = owned ? parseOptionalNumber(shares) : null
     const parsedCost = owned ? parseOptionalNumber(cost) : null
     if (parsedTarget === false) {
       setError('Buy under must be a number.')
       return
     }
-    if (parsedTarget2 === false) {
-      setError('Buy under 2 must be a number.')
+    if (parsedBuyUpTo === false) {
+      setError('Buy up to must be a number.')
       return
     }
     if (parsedSell === false) {
       setError('Sell above must be a number.')
       return
     }
-    if (parsedSell2 === false) {
-      setError('Sell above 2 must be a number.')
+    if (parsedSellUpTo === false) {
+      setError('Sell up to must be a number.')
       return
     }
     if (parsedShares === false) {
@@ -128,9 +130,9 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
 
     const limits = exclusiveLimits(intent, {
       target: parsedTarget,
-      target2: parsedTarget2,
+      buyUpTo: parsedBuyUpTo,
       sell: parsedSell,
-      sell2: parsedSell2,
+      sellUpTo: parsedSellUpTo,
     })
     const patch: PositionUserPatch = {
       name: name.trim(),
@@ -146,9 +148,9 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
     try {
       await updateTicker(position.row, patch)
       setTarget(limits.target === null ? '' : String(limits.target))
-      setTarget2(limits.target2 === null ? '' : String(limits.target2))
+      setBuyUpTo(limits.buyUpTo === null ? '' : String(limits.buyUpTo))
       setSell(limits.sell === null ? '' : String(limits.sell))
-      setSell2(limits.sell2 === null ? '' : String(limits.sell2))
+      setSellUpTo(limits.sellUpTo === null ? '' : String(limits.sellUpTo))
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not save changes.')
     } finally {
@@ -166,7 +168,7 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
               <YahooQuoteLink ticker={position.ticker} />
               {position.ticker}
             </p>
-            <p className="text-lg font-medium tracking-tight">{position.name || 'Unnamed'}</p>
+            <p className="text-base font-medium tracking-tight">{position.name || 'Unnamed'}</p>
             {position.sector ? <p className="text-xs text-muted-foreground">{position.sector}</p> : null}
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tracking-wide uppercase">
               {position.owned ? (
@@ -226,7 +228,7 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
           ) : null}
 
           <div className="grid gap-4">
-            <label className="grid gap-1.5 text-sm">
+            <label className="grid gap-1.5 text-xs">
               <MetricTip metric="name">
                 <span>Name</span>
               </MetricTip>
@@ -235,7 +237,7 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-xs">
               <input
                 type="checkbox"
                 checked={owned}
@@ -245,10 +247,10 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
                   if (!nextOwned) {
                     setShares('')
                     setCost('')
-                    setIntent(defaultIntent(false, Boolean(target.trim() || target2.trim())))
+                    setIntent(normalizeIntent(intent, false, Boolean(target.trim())))
                     return
                   }
-                  setIntent(intent === 'watch' || intent === 'buy' ? 'hold' : intent)
+                  setIntent(normalizeIntent(intent, true, Boolean(target.trim())))
                 }}
                 className="size-4 rounded border-input accent-foreground"
               />
@@ -258,7 +260,7 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
             </label>
             {owned ? (
               <div className="grid grid-cols-2 gap-3">
-                <label className="grid gap-1.5 text-sm">
+                <label className="grid gap-1.5 text-xs">
                   <MetricTip metric="shares">
                     <span>Shares</span>
                   </MetricTip>
@@ -268,7 +270,7 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
                     onChange={(event) => setShares(event.target.value)}
                   />
                 </label>
-                <label className="grid gap-1.5 text-sm">
+                <label className="grid gap-1.5 text-xs">
                   <MetricTip metric="cost">
                     <span>Avg buy price</span>
                   </MetricTip>
@@ -283,12 +285,12 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
             {position.owned ? (
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Value</p>
+                  <p className="text-xs tracking-wide text-muted-foreground uppercase">Value</p>
                   <p className="font-mono tabular-nums">{formatPrice(position.marketValue, position.currency)}</p>
                 </div>
                 <div>
                   <MetricTip metric="pnl">
-                    <span className="text-[11px] tracking-wide text-muted-foreground uppercase">P/L</span>
+                    <span className="text-xs tracking-wide text-muted-foreground uppercase">P/L</span>
                   </MetricTip>
                   <p
                     className={cn(
@@ -301,7 +303,7 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
                 </div>
               </div>
             ) : null}
-            <label className="grid gap-1.5 text-sm">
+            <label className="grid gap-1.5 text-xs">
               <MetricTip metric="intent">
                 <span>Plan</span>
               </MetricTip>
@@ -310,21 +312,20 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
             <PlanTargets
               intent={intent}
               price={position.price}
-              values={{ target, target2, sell, sell2 }}
+              currency={position.currency}
+              values={{ target, buyUpTo, sell, sellUpTo }}
               saved={{
                 target: position.target,
-                target2: position.target2,
                 sell: position.sell,
-                sell2: position.sell2,
               }}
               onChange={(field, value) => {
                 if (field === 'target') setTarget(value)
-                if (field === 'target2') setTarget2(value)
+                if (field === 'buyUpTo') setBuyUpTo(value)
                 if (field === 'sell') setSell(value)
-                if (field === 'sell2') setSell2(value)
+                if (field === 'sellUpTo') setSellUpTo(value)
               }}
             />
-            <label className="grid gap-1.5 text-sm">
+            <label className="grid gap-1.5 text-xs">
               <MetricTip metric="idea">
                 <span>IDEA</span>
               </MetricTip>
@@ -474,7 +475,7 @@ function Stat({
 }) {
   return (
     <div>
-      <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">
+      <dt className="text-xs tracking-wide text-muted-foreground uppercase">
         <MetricTip metric={metric}>
           <span>{label}</span>
         </MetricTip>

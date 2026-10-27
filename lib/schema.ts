@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 export const WORKBOOK_NAME = 'stocks-watchlist'
 export const WATCHLIST_SHEET = 'Watchlist'
 export const META_SHEET = '_Meta'
@@ -45,11 +45,26 @@ export const HEADERS = [
   'intent',
   'sell',
   'sell2',
+  'buyUpTo',
+  'sellUpTo',
 ] as const
 
 export type Header = (typeof HEADERS)[number]
 
-export const USER_HEADERS = ['ticker', 'name', 'idea', 'target', 'target2', 'shares', 'cost', 'intent', 'sell', 'sell2'] as const
+export const USER_HEADERS = [
+  'ticker',
+  'name',
+  'idea',
+  'target',
+  'target2',
+  'shares',
+  'cost',
+  'intent',
+  'sell',
+  'sell2',
+  'buyUpTo',
+  'sellUpTo',
+] as const
 export type UserHeader = (typeof USER_HEADERS)[number]
 
 export const MARKET_HEADERS = HEADERS.filter(
@@ -74,6 +89,7 @@ export function colLetter(index: number) {
 
 export const LAST_COL = colLetter(HEADERS.length - 1)
 export const WATCHLIST_RANGE = `${WATCHLIST_SHEET}!A:${LAST_COL}`
+export const HISTORY_RANGE = `${HISTORY_SHEET}!A:DZ`
 export const V1_MARKET_HEADERS = HEADERS.slice(HEADER_INDEX.price, HEADER_INDEX.tradetime + 1)
 export const V2_MARKET_HEADERS = HEADERS.slice(HEADER_INDEX.sector, HEADER_INDEX.earnings + 1)
 

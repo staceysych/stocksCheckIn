@@ -3,7 +3,7 @@
 import { INTENT_LABEL, type Intent } from '@/lib/watchlist'
 import { cn } from '@/lib/utils'
 
-const OWNED_INTENTS = ['hold', 'add', 'sell'] as const
+const OWNED_INTENTS = ['hold', 'add', 'trim', 'sell'] as const
 const WATCH_INTENTS = ['watch', 'buy'] as const
 
 type IntentSelectProps = {

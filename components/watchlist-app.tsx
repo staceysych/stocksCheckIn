@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Plus, RefreshCw } from 'lucide-react'
 import { GOOGLE_CLIENT_ID, useGoogleSession } from '@/lib/google-auth'
 import { useWatchlist } from '@/lib/use-watchlist'
-import { formatRelativeTime } from '@/lib/format'
+import { formatRelativeTime, refreshAgeMinutes } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { usMarketStatus } from '@/lib/watchlist'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -13,10 +15,19 @@ import { SignInView, Mark } from '@/components/sign-in-view'
 import { AccountButton } from '@/components/account-button'
 import { AddTickerDialog } from '@/components/add-ticker-dialog'
 import { WatchlistTable, type TableView } from '@/components/watchlist-table'
+import { SectorChart } from '@/components/sector-chart'
 import { WatchlistCalendar } from '@/components/watchlist-calendar'
 import { PositionDrawer } from '@/components/position-drawer'
 import { SummaryChips } from '@/components/summary-chips'
 import { TooltipProvider } from '@/components/ui/tooltip'
+
+const HistoryChart = dynamic(
+  () => import('@/components/history-chart').then((mod) => mod.HistoryChart),
+  {
+    ssr: false,
+    loading: () => <p className="py-16 text-center text-sm text-muted-foreground">Loading chart…</p>,
+  },
+)
 
 export function WatchlistApp() {
   return (
@@ -39,7 +50,7 @@ function Shell() {
 
   return (
     <TooltipProvider>
-    <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto flex min-h-dvh w-full max-w-[90rem] flex-col gap-6 px-4 py-6 sm:px-6 sm:py-10">
       <header className="flex flex-col gap-4">
         {status === 'signed-in' ? (
           <AccountButton
@@ -51,9 +62,9 @@ function Shell() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <Mark />
-            <h1 className="text-lg font-medium tracking-tight">Watchlist</h1>
+            <h1 className="text-base font-medium tracking-tight">Watchlist</h1>
             <span
-              className={`rounded-full px-2 py-0.5 text-[11px] tracking-wide uppercase ${
+              className={`rounded-full px-2 py-0.5 text-xs tracking-wide uppercase ${
                 market === 'open' ? 'bg-up/15 text-up' : 'bg-secondary text-muted-foreground'
               }`}
             >
@@ -61,7 +72,7 @@ function Shell() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <p className="hidden text-xs text-muted-foreground sm:block">{formatRelativeTime(snapshot.lastRefresh)}</p>
+            <RefreshAge iso={snapshot.lastRefresh} />
             <Button
               variant="outline"
               onClick={() => void refresh()}
@@ -100,11 +111,19 @@ function Shell() {
                   <TabsTrigger value="range">Range</TabsTrigger>
                   <TabsTrigger value="valuation">Valuation</TabsTrigger>
                   <TabsTrigger value="calendar">Calendar</TabsTrigger>
+                  <TabsTrigger value="chart">Chart</TabsTrigger>
+                  <TabsTrigger value="sectors">Sectors</TabsTrigger>
                 </TabsList>
               </Tabs>
               <WatchlistCalendar positions={positions} onSelect={setSelectedRow} />
             </div>
-            <WatchlistTable positions={positions} view={view} selectedRow={selectedRow} onSelect={setSelectedRow} />
+            {view === 'chart' ? (
+              <HistoryChart positions={positions} history={snapshot.history} activeTicker={selected?.ticker} />
+            ) : view === 'sectors' ? (
+              <SectorChart positions={positions} onSelect={setSelectedRow} />
+            ) : (
+              <WatchlistTable positions={positions} view={view} selectedRow={selectedRow} onSelect={setSelectedRow} />
+            )}
           </>
         )}
       </main>
@@ -113,6 +132,46 @@ function Shell() {
       <PositionDrawer position={selected} onClose={() => setSelectedRow(null)} />
     </div>
     </TooltipProvider>
+  )
+}
+
+function RefreshAge({ iso }: { iso: string | null }) {
+  const [age, setAge] = useState<{ minutes: number | null; label: string } | null>(null)
+
+  useEffect(() => {
+    const tick = () => {
+      setAge({ minutes: refreshAgeMinutes(iso), label: formatRelativeTime(iso) })
+    }
+    tick()
+    const id = window.setInterval(tick, 30_000)
+    return () => window.clearInterval(id)
+  }, [iso])
+
+  const minutes = age === null ? null : age.minutes
+  const tone =
+    age === null
+      ? null
+      : minutes === null || minutes > 60
+        ? 'red'
+        : minutes > 30
+          ? 'orange'
+          : minutes > 10
+            ? 'yellow'
+            : null
+
+  return (
+    <p
+      suppressHydrationWarning
+      className={cn(
+        'hidden text-xs sm:block',
+        tone ? 'rounded-md px-2 py-0.5' : 'text-muted-foreground',
+        tone === 'yellow' && 'bg-yellow-400/20 text-yellow-300',
+        tone === 'orange' && 'bg-orange-500/20 text-orange-300',
+        tone === 'red' && 'bg-down/20 text-down',
+      )}
+    >
+      {age?.label ?? ''}
+    </p>
   )
 }
 

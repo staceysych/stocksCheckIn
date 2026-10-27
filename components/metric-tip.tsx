@@ -78,6 +78,12 @@ function metricLabel(metric: MetricId) {
       return 'buy zone'
     case 'nearBuy':
       return 'near buy'
+    case 'buyUpTo':
+      return 'buy up to'
+    case 'sellUpTo':
+      return 'sell up to'
+    case 'diversification':
+      return 'sector mix'
     default:
       return metric
   }

@@ -38,12 +38,17 @@ export function formatDate(value: string) {
   )
 }
 
+export function refreshAgeMinutes(iso: string | null) {
+  if (!iso) return null
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return null
+  return Math.max(0, Math.round((Date.now() - then) / 60_000))
+}
+
 export function formatRelativeTime(iso: string | null) {
   if (!iso) return 'Not yet refreshed'
-  const then = new Date(iso).getTime()
-  if (Number.isNaN(then)) return iso
-  const delta = Date.now() - then
-  const minutes = Math.round(delta / 60_000)
+  const minutes = refreshAgeMinutes(iso)
+  if (minutes === null) return iso
   if (minutes < 1) return 'Just now'
   if (minutes === 1) return '1 min ago'
   if (minutes < 60) return `${minutes} min ago`

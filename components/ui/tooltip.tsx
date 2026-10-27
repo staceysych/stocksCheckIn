@@ -22,7 +22,7 @@ function TooltipContent({ className, children, ...props }: TooltipPrimitive.Popu
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            'max-w-xs origin-(--transform-origin) rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs leading-relaxed text-pretty text-popover-foreground shadow-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0',
+            'max-w-xs origin-(--transform-origin) rounded-md border border-border bg-popover px-2.5 py-1.5 text-[12px] leading-relaxed text-pretty text-popover-foreground shadow-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0',
             className,
           )}
           {...props}

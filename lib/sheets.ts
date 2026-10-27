@@ -1,5 +1,6 @@
 import {
   HEADERS,
+  HISTORY_RANGE,
   HISTORY_SHEET,
   META_SHEET,
   SCHEMA_VERSION,
@@ -14,6 +15,7 @@ import {
 import { fetchSnapshots, type MarketSnapshot } from '@/lib/market'
 import {
   applySnapshot,
+  parseHistoryRows,
   parseWatchlistRows,
   snapshotCells,
   type Intent,
@@ -65,6 +67,7 @@ export async function readWatchlist(token: string, spreadsheetId: string): Promi
   const query = [
     `ranges=${encodeURIComponent(WATCHLIST_RANGE)}`,
     `ranges=${encodeURIComponent(`${META_SHEET}!A1:B2`)}`,
+    `ranges=${encodeURIComponent(HISTORY_RANGE)}`,
     'valueRenderOption=UNFORMATTED_VALUE',
     'dateTimeRenderOption=FORMATTED_STRING',
   ].join('&')
@@ -73,6 +76,7 @@ export async function readWatchlist(token: string, spreadsheetId: string): Promi
   const data = (await res.json()) as { valueRanges?: SheetValues[] }
   const watchlistValues = data.valueRanges?.[0]?.values ?? []
   const metaValues = data.valueRanges?.[1]?.values ?? []
+  const historyValues = data.valueRanges?.[2]?.values ?? []
   const lastRefresh = metaValues.find((row) => String(row[0]) === 'lastRefresh')?.[1]
   const headers = (watchlistValues[0] ?? []).map((value) => String(value))
   const aligned = alignRows(headers, watchlistValues)
@@ -81,6 +85,7 @@ export async function readWatchlist(token: string, spreadsheetId: string): Promi
     spreadsheetId,
     spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
     positions: parseWatchlistRows(aligned),
+    history: parseHistoryRows(historyValues),
     lastRefresh: lastRefresh ? String(lastRefresh) : null,
   }
 }
@@ -104,6 +109,8 @@ export type PositionInput = {
   target2: number | null
   sell: number | null
   sell2: number | null
+  buyUpTo: number | null
+  sellUpTo: number | null
   shares: number | null
   cost: number | null
   intent: Intent
@@ -119,6 +126,8 @@ export function dataRow(input: PositionInput, snapshot?: MarketSnapshot) {
     if (header === 'target2') return sheetValue(input.target2)
     if (header === 'sell') return sheetValue(input.sell)
     if (header === 'sell2') return sheetValue(input.sell2)
+    if (header === 'buyUpTo') return sheetValue(input.buyUpTo)
+    if (header === 'sellUpTo') return sheetValue(input.sellUpTo)
     if (header === 'shares') return sheetValue(input.shares)
     if (header === 'cost') return sheetValue(input.cost)
     if (header === 'intent') return input.intent
@@ -153,6 +162,8 @@ export async function updatePositionFields(
   if (patch.target2 !== undefined) data.push({ range: cellA1('target2', row), values: [[sheetValue(patch.target2)]] })
   if (patch.sell !== undefined) data.push({ range: cellA1('sell', row), values: [[sheetValue(patch.sell)]] })
   if (patch.sell2 !== undefined) data.push({ range: cellA1('sell2', row), values: [[sheetValue(patch.sell2)]] })
+  if (patch.buyUpTo !== undefined) data.push({ range: cellA1('buyUpTo', row), values: [[sheetValue(patch.buyUpTo)]] })
+  if (patch.sellUpTo !== undefined) data.push({ range: cellA1('sellUpTo', row), values: [[sheetValue(patch.sellUpTo)]] })
   if (patch.shares !== undefined) data.push({ range: cellA1('shares', row), values: [[sheetValue(patch.shares)]] })
   if (patch.cost !== undefined) data.push({ range: cellA1('cost', row), values: [[sheetValue(patch.cost)]] })
   if (patch.intent !== undefined) data.push({ range: cellA1('intent', row), values: [[patch.intent]] })

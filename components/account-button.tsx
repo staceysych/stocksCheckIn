@@ -29,7 +29,7 @@ export function AccountButton({ syncStatus, syncMessage, spreadsheetUrl }: Accou
             referrerPolicy="no-referrer"
           />
         ) : (
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-medium">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-medium">
             {user.name.slice(0, 1).toUpperCase()}
           </span>
         )}

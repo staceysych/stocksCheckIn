@@ -10,9 +10,12 @@ import {
   isNearBuy,
   isNearSell,
   maTone,
+  sectionShowsBuyTarget,
+  sectionShowsSellTarget,
   sellTone,
   showBuyLimits,
   showSellLimits,
+  sizeNotional,
   targetTone,
   type MaTone,
   type PlanSection,
@@ -22,10 +25,11 @@ import {
 import { cn } from '@/lib/utils'
 import { RangeBar } from '@/components/range-bar'
 import { MetricTip } from '@/components/metric-tip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { YahooQuoteLink } from '@/components/yahoo-quote-link'
 import type { MetricId } from '@/lib/metrics'
 
-export type TableView = 'overview' | 'range' | 'valuation' | 'calendar'
+export type TableView = 'overview' | 'range' | 'valuation' | 'calendar' | 'chart' | 'sectors'
 
 const TICKER_COL = 'w-44 min-w-44 max-w-44'
 
@@ -37,6 +41,8 @@ type SortKey =
   | 'pctToTarget'
   | 'sell'
   | 'pctToSell'
+  | 'buyUpTo'
+  | 'sellUpTo'
   | 'intent'
   | 'pnlPct'
   | 'volume'
@@ -44,6 +50,7 @@ type SortKey =
   | 'forwardPe'
   | 'peg'
   | 'ma200'
+  | 'pctVsMa200'
   | 'pctExpect'
 
 type WatchlistTableProps = {
@@ -85,13 +92,14 @@ export function WatchlistTable({ positions, view, selectedRow, onSelect }: Watch
                 <colgroup>
                   <col className={TICKER_COL} />
                 </colgroup>
-                <ColumnHeads view={view} sort={sort} onToggle={toggleSort} />
+                <ColumnHeads view={view} section={section.id} sort={sort} onToggle={toggleSort} />
                 <tbody>
                   {section.positions.map((position) => (
                     <PositionRow
                       key={position.row}
                       position={position}
                       view={view}
+                      section={section.id}
                       selected={position.row === selectedRow}
                       onSelect={onSelect}
                     />
@@ -107,19 +115,21 @@ export function WatchlistTable({ positions, view, selectedRow, onSelect }: Watch
 }
 
 function sectionTitleClass(section: PlanSection) {
-  if (section === 'buy') return 'text-buy'
-  if (section === 'sell') return 'text-sell'
+  if (section === 'buy' || section === 'add') return 'text-buy'
+  if (section === 'trim' || section === 'sell') return 'text-sell'
   return undefined
 }
 
 function PositionRow({
   position,
   view,
+  section,
   selected,
   onSelect,
 }: {
   position: Position
   view: TableView
+  section: PlanSection
   selected: boolean
   onSelect: (row: number) => void
 }) {
@@ -135,7 +145,7 @@ function PositionRow({
     >
       <td
         className={cn(
-          'sticky left-0 z-20 overflow-hidden bg-background px-3 py-2.5 font-mono text-xs font-medium whitespace-nowrap shadow-[1px_0_0_0_var(--border)]',
+          'sticky left-0 z-20 overflow-hidden bg-background px-3 py-2.5 font-mono text-sm font-medium whitespace-nowrap shadow-[1px_0_0_0_var(--border)]',
           TICKER_COL,
           'group-hover:bg-white/5',
           position.inSellZone && 'bg-row-sell hover:bg-row-sell group-hover:bg-row-sell',
@@ -145,12 +155,9 @@ function PositionRow({
       >
         <span className="flex items-center gap-1.5">
           <YahooQuoteLink ticker={position.ticker} />
-          {position.ticker}
+          <TickerLabel ticker={position.ticker} name={position.name} />
           <TickerTag position={position} />
         </span>
-      </td>
-      <td className="relative z-0 min-w-0 max-w-[160px] truncate overflow-hidden px-3 py-2.5 text-muted-foreground">
-        {position.name || '—'}
       </td>
       {view === 'overview' ? (
         <>
@@ -162,39 +169,67 @@ function PositionRow({
             )}
           </td>
           <ChangeCell value={position.changepct} />
-          <TargetCell
-            price={position.price}
-            target={position.target}
-            currency={position.currency}
-            active={showBuyLimits(position.intent)}
-          />
-          <PctToTargetCell
-            price={position.price}
-            target={position.target}
-            value={position.pctToTarget}
-            active={showBuyLimits(position.intent)}
-          />
-          <SellCell
-            price={position.price}
-            sell={position.sell}
-            currency={position.currency}
-            active={showSellLimits(position.intent)}
-          />
-          <PctToSellCell
-            price={position.price}
-            sell={position.sell}
-            value={position.pctToSell}
-            active={showSellLimits(position.intent)}
-          />
+          {sectionShowsBuyTarget(section) ? (
+            <>
+              <TargetCell
+                price={position.price}
+                target={position.target}
+                currency={position.currency}
+                active={showBuyLimits(position.intent)}
+              />
+              <PctToTargetCell
+                price={position.price}
+                target={position.target}
+                value={position.pctToTarget}
+                active={showBuyLimits(position.intent)}
+              />
+              <SizeCell
+                qty={showBuyLimits(position.intent) ? position.buyUpTo : null}
+                price={position.price}
+                currency={position.currency}
+              />
+            </>
+          ) : null}
+          {sectionShowsSellTarget(section) ? (
+            <>
+              <SellCell
+                price={position.price}
+                sell={position.sell}
+                currency={position.currency}
+                active={showSellLimits(position.intent)}
+              />
+              <PctToSellCell
+                price={position.price}
+                sell={position.sell}
+                value={position.pctToSell}
+                active={showSellLimits(position.intent)}
+              />
+              <SizeCell
+                qty={showSellLimits(position.intent) ? position.sellUpTo : null}
+                price={position.price}
+                currency={position.currency}
+              />
+            </>
+          ) : null}
           <td className={cn('px-3 py-2.5 text-xs tracking-wide uppercase', intentClass(position.intent))}>
             {INTENT_LABEL[position.intent]}
           </td>
           <PnlCell position={position} />
-          <td className="max-w-[280px] truncate px-3 py-2.5 text-muted-foreground">{position.idea || '—'}</td>
         </>
       ) : null}
       {view === 'range' ? (
         <>
+          <td className="px-3 py-2.5 text-right font-mono tabular-nums">
+            {position.quoteUnavailable ? (
+              <span className="text-muted-foreground">n/a</span>
+            ) : (
+              formatPrice(position.price, position.currency)
+            )}
+          </td>
+          <MaCell price={position.price} ma={position.ma20} currency={position.currency} />
+          <MaCell price={position.price} ma={position.ma50} currency={position.currency} />
+          <MaCell price={position.price} ma={position.ma100} currency={position.currency} />
+          <MaCell price={position.price} ma={position.ma200} currency={position.currency} />
           <td className="px-3 py-2.5">
             <RangeBar
               position={position.rangePosition}
@@ -204,13 +239,6 @@ function PositionRow({
           </td>
           <td className="px-3 py-2.5 text-right font-mono tabular-nums">{formatPrice(position.low52, position.currency)}</td>
           <td className="px-3 py-2.5 text-right font-mono tabular-nums">{formatPrice(position.high52, position.currency)}</td>
-          <MaCell price={position.price} ma={position.ma20} currency={position.currency} />
-          <MaCell price={position.price} ma={position.ma50} currency={position.currency} />
-          <MaCell price={position.price} ma={position.ma100} currency={position.currency} />
-          <MaCell price={position.price} ma={position.ma200} currency={position.currency} />
-          <td className={cn('px-3 py-2.5 text-right font-mono tabular-nums', maClass(maTone(position.price, position.ma200)))}>
-            {formatPct(position.pctVsMa200)}
-          </td>
         </>
       ) : null}
       {view === 'valuation' ? (
@@ -229,60 +257,37 @@ function PositionRow({
       {view === 'calendar' ? (
         <>
           <td className="max-w-[140px] truncate px-3 py-2.5 text-muted-foreground">{position.sector || '—'}</td>
-          <td className="px-3 py-2.5 font-mono text-xs">{formatDate(position.earnings)}</td>
-          <td className="px-3 py-2.5 font-mono text-xs">{formatDate(position.exDiv)}</td>
-          <TargetCell
-            price={position.price}
-            target={position.target}
-            currency={position.currency}
-            active={showBuyLimits(position.intent)}
-          />
-          <TargetCell
-            price={position.price}
-            target={position.target2}
-            currency={position.currency}
-            active={showBuyLimits(position.intent)}
-          />
-          <SellCell
-            price={position.price}
-            sell={position.sell}
-            currency={position.currency}
-            active={showSellLimits(position.intent)}
-          />
-          <SellCell
-            price={position.price}
-            sell={position.sell2}
-            currency={position.currency}
-            active={showSellLimits(position.intent)}
-          />
-          <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">{formatAsOf(position.tradetime)}</td>
+          <td className="px-3 py-2.5 font-mono">{formatDate(position.earnings)}</td>
+          <td className="px-3 py-2.5 font-mono">{formatDate(position.exDiv)}</td>
+          <td className="px-3 py-2.5 font-mono text-muted-foreground">{formatAsOf(position.tradetime)}</td>
         </>
       ) : null}
     </tr>
   )
 }
 
+function TickerLabel({ ticker, name }: { ticker: string; name: string }) {
+  if (!name) return ticker
+
+  return (
+    <Tooltip>
+      <TooltipTrigger delay={150} className="cursor-pointer bg-transparent p-0 font-inherit text-inherit">
+        {ticker}
+      </TooltipTrigger>
+      <TooltipContent>{name}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 function TickerTag({ position }: { position: Position }) {
-  if (position.inSellZone) {
-    return <span className="text-[10px] tracking-wide text-sell uppercase">Sell</span>
-  }
-  if (position.intent === 'sell') {
-    return <span className="text-[10px] tracking-wide text-sell uppercase">Sell</span>
-  }
-  if (position.intent === 'add') {
-    return <span className="text-[10px] tracking-wide text-buy uppercase">Add</span>
-  }
-  if (position.inBuyZone) {
-    return <span className="text-[10px] tracking-wide text-buy uppercase">Buy</span>
-  }
   if (isNearSell(position)) {
-    return <span className="text-[10px] tracking-wide text-sell/80 uppercase">Near</span>
+    return <span className="text-xs tracking-wide text-sell/80 uppercase">Near</span>
   }
   if (isNearBuy(position)) {
-    return <span className="text-[10px] tracking-wide text-buy/80 uppercase">Near</span>
+    return <span className="text-xs tracking-wide text-buy/80 uppercase">Near</span>
   }
   if (position.owned) {
-    return <span className="text-[10px] tracking-wide text-muted-foreground uppercase">Own</span>
+    return <span className="text-xs tracking-wide text-muted-foreground uppercase">Own</span>
   }
   return null
 }
@@ -418,6 +423,11 @@ function PctToSellCell({
   )
 }
 
+function pctVsMa(price: number | null, ma: number | null) {
+  if (price === null || ma === null || ma === 0) return null
+  return (price / ma - 1) * 100
+}
+
 function MaCell({
   price,
   ma,
@@ -428,12 +438,46 @@ function MaCell({
   currency: string
 }) {
   const tone = maTone(price, ma)
+  const pct = pctVsMa(price, ma)
   return (
-    <td
-      className={cn('px-3 py-2.5 text-right font-mono tabular-nums', maClass(tone))}
-      title={tone === 'pullback' ? 'Price is below this moving average' : tone === 'extended' ? 'Price is above this moving average' : undefined}
-    >
-      {formatPrice(ma, currency)}
+    <td className={cn('px-3 py-2.5 text-right font-mono tabular-nums', maClass(tone))}>
+      {ma === null ? (
+        '—'
+      ) : (
+        <Tooltip>
+          <TooltipTrigger delay={150} className="cursor-pointer bg-transparent p-0 font-inherit text-inherit tabular-nums">
+            {formatPct(pct)}
+          </TooltipTrigger>
+          <TooltipContent>{formatPrice(ma, currency)}</TooltipContent>
+        </Tooltip>
+      )}
+    </td>
+  )
+}
+
+function SizeCell({
+  qty,
+  price,
+  currency,
+}: {
+  qty: number | null
+  price: number | null
+  currency: string
+}) {
+  if (qty === null) return <td className="px-3 py-2.5 text-right font-mono text-muted-foreground">—</td>
+  const cash = sizeNotional(qty, price)
+  return (
+    <td className="px-3 py-2.5 text-right font-mono tabular-nums">
+      {cash === null ? (
+        formatNumber(qty)
+      ) : (
+        <Tooltip>
+          <TooltipTrigger delay={150} className="cursor-pointer bg-transparent p-0 font-inherit text-inherit tabular-nums">
+            {formatNumber(qty)}
+          </TooltipTrigger>
+          <TooltipContent>{formatPrice(cash, currency)} at last</TooltipContent>
+        </Tooltip>
+      )}
     </td>
   )
 }
@@ -450,41 +494,51 @@ function ChangeCell({ value }: { value: number | null }) {
 
 function ColumnHeads({
   view,
+  section,
   sort,
   onToggle,
 }: {
   view: TableView
+  section: PlanSection
   sort: { key: SortKey; dir: 'asc' | 'desc' } | null
   onToggle: (key: SortKey) => void
 }) {
   return (
-    <thead className="bg-card text-[11px] tracking-wide text-muted-foreground uppercase">
+    <thead className="bg-card text-xs tracking-wide text-muted-foreground uppercase">
       <tr className="border-b border-border">
         <SortHead metric="ticker" label="Ticker" active={sort?.key === 'ticker'} dir={sort?.dir} onClick={() => onToggle('ticker')} sticky />
-        <Head metric="name" label="Name" />
         {view === 'overview' ? (
           <>
             <SortHead metric="price" label="Price" active={sort?.key === 'price'} dir={sort?.dir} onClick={() => onToggle('price')} numeric />
             <SortHead metric="changepct" label="Chg" active={sort?.key === 'changepct'} dir={sort?.dir} onClick={() => onToggle('changepct')} numeric />
-            <SortHead metric="target" label="Target" active={sort?.key === 'target'} dir={sort?.dir} onClick={() => onToggle('target')} numeric />
-            <SortHead metric="pctToTarget" label="% to tgt" active={sort?.key === 'pctToTarget'} dir={sort?.dir} onClick={() => onToggle('pctToTarget')} numeric />
-            <SortHead metric="sell" label="Sell" active={sort?.key === 'sell'} dir={sort?.dir} onClick={() => onToggle('sell')} numeric />
-            <SortHead metric="pctToSell" label="% to sell" active={sort?.key === 'pctToSell'} dir={sort?.dir} onClick={() => onToggle('pctToSell')} numeric />
+            {sectionShowsBuyTarget(section) ? (
+              <>
+                <SortHead metric="target" label="Buy target" active={sort?.key === 'target'} dir={sort?.dir} onClick={() => onToggle('target')} numeric />
+                <SortHead metric="pctToTarget" label="% to tgt" active={sort?.key === 'pctToTarget'} dir={sort?.dir} onClick={() => onToggle('pctToTarget')} numeric />
+                <SortHead metric="buyUpTo" label="Buy up to" active={sort?.key === 'buyUpTo'} dir={sort?.dir} onClick={() => onToggle('buyUpTo')} numeric />
+              </>
+            ) : null}
+            {sectionShowsSellTarget(section) ? (
+              <>
+                <SortHead metric="sell" label="Sell target" active={sort?.key === 'sell'} dir={sort?.dir} onClick={() => onToggle('sell')} numeric />
+                <SortHead metric="pctToSell" label="% to tgt" active={sort?.key === 'pctToSell'} dir={sort?.dir} onClick={() => onToggle('pctToSell')} numeric />
+                <SortHead metric="sellUpTo" label="Sell up to" active={sort?.key === 'sellUpTo'} dir={sort?.dir} onClick={() => onToggle('sellUpTo')} numeric />
+              </>
+            ) : null}
             <SortHead metric="intent" label="Plan" active={sort?.key === 'intent'} dir={sort?.dir} onClick={() => onToggle('intent')} />
             <SortHead metric="pnl" label="P/L" active={sort?.key === 'pnlPct'} dir={sort?.dir} onClick={() => onToggle('pnlPct')} numeric />
-            <Head metric="idea" label="IDEA" />
           </>
         ) : null}
         {view === 'range' ? (
           <>
+            <SortHead metric="price" label="Price" active={sort?.key === 'price'} dir={sort?.dir} onClick={() => onToggle('price')} numeric />
+            <Head metric="ma20" label="MA20%" numeric />
+            <Head metric="ma50" label="MA50%" numeric />
+            <Head metric="ma100" label="MA100%" numeric />
+            <SortHead metric="ma200" label="MA200%" active={sort?.key === 'pctVsMa200'} dir={sort?.dir} onClick={() => onToggle('pctVsMa200')} numeric />
             <Head metric="range52" label="52w" />
             <Head metric="low52" label="Low" numeric />
             <Head metric="high52" label="High" numeric />
-            <Head metric="ma20" label="MA20" numeric />
-            <Head metric="ma50" label="MA50" numeric />
-            <Head metric="ma100" label="MA100" numeric />
-            <SortHead metric="ma200" label="MA200" active={sort?.key === 'ma200'} dir={sort?.dir} onClick={() => onToggle('ma200')} numeric />
-            <Head metric="pctVsMa200" label="% vs 200" numeric />
           </>
         ) : null}
         {view === 'valuation' ? (
@@ -505,10 +559,6 @@ function ColumnHeads({
             <Head metric="sector" label="Sector" />
             <Head metric="earnings" label="Earnings" />
             <Head metric="exDiv" label="Ex-div" />
-            <Head metric="target" label="Buy 1" numeric />
-            <Head metric="target2" label="Buy 2" numeric />
-            <Head metric="sell" label="Sell 1" numeric />
-            <Head metric="sell2" label="Sell 2" numeric />
             <Head metric="tradetime" label="As of" />
           </>
         ) : null}

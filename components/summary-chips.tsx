@@ -49,7 +49,7 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
                   className="rounded-md bg-sell/15 px-2 py-1 font-mono text-xs text-sell hover:bg-sell/25"
                 >
                   {position.ticker} {formatPrice(position.price, position.currency)} ≥{' '}
-                  {formatPrice(liveSell(position), position.currency)}
+                  {formatPrice(position.sell, position.currency)}
                 </button>
               </li>
             ))}
@@ -117,12 +117,6 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
   )
 }
 
-function liveSell(position: Position) {
-  const levels = [position.sell, position.sell2].filter((value): value is number => value !== null)
-  if (position.price === null) return position.sell
-  return levels.find((level) => position.price !== null && position.price >= level) ?? position.sell
-}
-
 function Chip({
   metric,
   title,
@@ -134,7 +128,7 @@ function Chip({
 }) {
   return (
     <section className="rounded-xl border border-border bg-card px-4 py-3">
-      <h2 className="mb-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+      <h2 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
         <MetricTip metric={metric}>
           <span>{title}</span>
         </MetricTip>

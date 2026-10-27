@@ -36,9 +36,9 @@ export function AddTickerDialog({ open, onOpenChange }: AddTickerDialogProps) {
   const [ticker, setTicker] = useState('')
   const [name, setName] = useState('')
   const [target, setTarget] = useState('')
-  const [target2, setTarget2] = useState('')
+  const [buyUpTo, setBuyUpTo] = useState('')
   const [sell, setSell] = useState('')
-  const [sell2, setSell2] = useState('')
+  const [sellUpTo, setSellUpTo] = useState('')
   const [idea, setIdea] = useState('')
   const [owned, setOwned] = useState(false)
   const [shares, setShares] = useState('')
@@ -51,9 +51,9 @@ export function AddTickerDialog({ open, onOpenChange }: AddTickerDialogProps) {
     setTicker('')
     setName('')
     setTarget('')
-    setTarget2('')
+    setBuyUpTo('')
     setSell('')
-    setSell2('')
+    setSellUpTo('')
     setIdea('')
     setOwned(false)
     setShares('')
@@ -80,25 +80,25 @@ export function AddTickerDialog({ open, onOpenChange }: AddTickerDialogProps) {
       return
     }
     const parsedTarget = showBuyLimits(intent) ? parseOptionalNumber(target, 'Buy target') : { ok: true as const, value: null }
-    const parsedTarget2 = showBuyLimits(intent) ? parseOptionalNumber(target2, 'Second buy target') : { ok: true as const, value: null }
+    const parsedBuyUpTo = showBuyLimits(intent) ? parseOptionalNumber(buyUpTo, 'Buy up to') : { ok: true as const, value: null }
     const parsedSell = showSellLimits(intent) ? parseOptionalNumber(sell, 'Sell target') : { ok: true as const, value: null }
-    const parsedSell2 = showSellLimits(intent) ? parseOptionalNumber(sell2, 'Second sell target') : { ok: true as const, value: null }
+    const parsedSellUpTo = showSellLimits(intent) ? parseOptionalNumber(sellUpTo, 'Sell up to') : { ok: true as const, value: null }
     const parsedShares = parseOptionalNumber(shares, 'Shares')
     const parsedCost = parseOptionalNumber(cost, 'Buy price')
     if (!parsedTarget.ok) {
       setError(parsedTarget.error)
       return
     }
-    if (!parsedTarget2.ok) {
-      setError(parsedTarget2.error)
+    if (!parsedBuyUpTo.ok) {
+      setError(parsedBuyUpTo.error)
       return
     }
     if (!parsedSell.ok) {
       setError(parsedSell.error)
       return
     }
-    if (!parsedSell2.ok) {
-      setError(parsedSell2.error)
+    if (!parsedSellUpTo.ok) {
+      setError(parsedSellUpTo.error)
       return
     }
     if (!parsedShares.ok) {
@@ -118,9 +118,9 @@ export function AddTickerDialog({ open, onOpenChange }: AddTickerDialogProps) {
     const nextCost = owned ? parsedCost.value : null
     const limits = exclusiveLimits(intent, {
       target: parsedTarget.value,
-      target2: parsedTarget2.value,
+      buyUpTo: parsedBuyUpTo.value,
       sell: parsedSell.value,
-      sell2: parsedSell2.value,
+      sellUpTo: parsedSellUpTo.value,
     })
 
     setPending(true)
@@ -153,7 +153,7 @@ export function AddTickerDialog({ open, onOpenChange }: AddTickerDialogProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid gap-1.5 text-xs">
             <span>Ticker</span>
             <Input
               value={ticker}
@@ -164,11 +164,11 @@ export function AddTickerDialog({ open, onOpenChange }: AddTickerDialogProps) {
               className="font-mono uppercase"
             />
           </label>
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid gap-1.5 text-xs">
             <span>Name</span>
             <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Microsoft" />
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-xs">
             <input
               type="checkbox"
               checked={owned}
@@ -183,7 +183,7 @@ export function AddTickerDialog({ open, onOpenChange }: AddTickerDialogProps) {
           </label>
           {owned ? (
             <div className="grid grid-cols-2 gap-3">
-              <label className="grid gap-1.5 text-sm">
+              <label className="grid gap-1.5 text-xs">
                 <span>Shares</span>
                 <Input
                   value={shares}
@@ -192,7 +192,7 @@ export function AddTickerDialog({ open, onOpenChange }: AddTickerDialogProps) {
                   placeholder="10"
                 />
               </label>
-              <label className="grid gap-1.5 text-sm">
+              <label className="grid gap-1.5 text-xs">
                 <span>Avg buy price</span>
                 <Input
                   value={cost}
@@ -203,21 +203,21 @@ export function AddTickerDialog({ open, onOpenChange }: AddTickerDialogProps) {
               </label>
             </div>
           ) : null}
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid gap-1.5 text-xs">
             <span>Plan</span>
             <IntentSelect value={intent} owned={owned} onChange={setIntent} />
           </label>
           <PlanTargets
             intent={intent}
-            values={{ target, target2, sell, sell2 }}
+            values={{ target, buyUpTo, sell, sellUpTo }}
             onChange={(field, value) => {
               if (field === 'target') setTarget(value)
-              if (field === 'target2') setTarget2(value)
+              if (field === 'buyUpTo') setBuyUpTo(value)
               if (field === 'sell') setSell(value)
-              if (field === 'sell2') setSell2(value)
+              if (field === 'sellUpTo') setSellUpTo(value)
             }}
           />
-          <label className="grid gap-1.5 text-sm">
+          <label className="grid gap-1.5 text-xs">
             <span>IDEA</span>
             <Textarea
               value={idea}

@@ -74,7 +74,7 @@ export function WatchlistCalendar({ positions, onSelect }: WatchlistCalendarProp
           </DialogHeader>
 
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium tracking-tight">{monthLabel}</p>
+            <p className="text-base font-medium tracking-tight">{monthLabel}</p>
             <div className="flex items-center gap-1">
               <Button
                 type="button"
@@ -110,7 +110,7 @@ export function WatchlistCalendar({ positions, onSelect }: WatchlistCalendarProp
 
           <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-border bg-border">
             {WEEKDAYS.map((label) => (
-              <div key={label} className="bg-card px-1.5 py-1.5 text-center text-[10px] tracking-wide text-muted-foreground uppercase">
+              <div key={label} className="bg-card px-1.5 py-1.5 text-center text-xs tracking-wide text-muted-foreground uppercase">
                 {label}
               </div>
             ))}
@@ -130,7 +130,7 @@ export function WatchlistCalendar({ positions, onSelect }: WatchlistCalendarProp
                 >
                   <p
                     className={cn(
-                      'mb-1 flex size-5 items-center justify-center rounded-full text-[11px] tabular-nums',
+                      'mb-1 flex size-5 items-center justify-center rounded-full text-xs tabular-nums',
                       isToday && 'bg-foreground text-background',
                     )}
                   >
@@ -142,7 +142,7 @@ export function WatchlistCalendar({ positions, onSelect }: WatchlistCalendarProp
                         <EventChip event={event} onSelect={openPosition} />
                       </li>
                     ))}
-                    {extra > 0 ? <li className="px-1 text-[10px] text-muted-foreground">+{extra}</li> : null}
+                    {extra > 0 ? <li className="px-1 text-xs text-muted-foreground">+{extra}</li> : null}
                   </ul>
                 </div>
               )
@@ -151,11 +151,11 @@ export function WatchlistCalendar({ positions, onSelect }: WatchlistCalendarProp
 
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
-              <span className="rounded-md bg-buy/30 px-1.5 py-0.5 font-mono text-[11px] font-medium text-buy">EARN</span>
+              <span className="rounded-md bg-buy/30 px-1.5 py-0.5 font-mono text-xs font-medium text-buy">EARN</span>
               Earnings
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="rounded-md bg-sky-500/25 px-1.5 py-0.5 font-mono text-[11px] font-medium text-sky-300">DIV</span>
+              <span className="rounded-md bg-sky-500/25 px-1.5 py-0.5 font-mono text-xs font-medium text-sky-300">DIV</span>
               Ex-div
             </span>
           </div>
@@ -168,7 +168,7 @@ export function WatchlistCalendar({ positions, onSelect }: WatchlistCalendarProp
 function EventChip({ event, onSelect }: { event: DateEvent; onSelect: (row: number) => void }) {
   const isEarnings = event.kind === 'earnings'
   const className = cn(
-    'block w-full truncate rounded-md px-1.5 py-0.5 text-left font-mono text-[11px] font-medium leading-tight',
+    'block w-full truncate rounded-md px-1.5 py-0.5 text-left font-mono text-xs font-medium leading-tight',
     isEarnings ? 'bg-buy/30 text-buy' : 'bg-sky-500/25 text-sky-300',
   )
   return (
