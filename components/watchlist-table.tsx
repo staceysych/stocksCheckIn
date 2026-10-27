@@ -51,6 +51,7 @@ type SortKey =
   | 'peg'
   | 'ma200'
   | 'pctVsMa200'
+  | 'targetAvg'
   | 'pctExpect'
 
 type WatchlistTableProps = {
@@ -169,6 +170,8 @@ function PositionRow({
             )}
           </td>
           <ChangeCell value={position.changepct} />
+          <td className="px-3 py-2.5 text-right font-mono tabular-nums">{formatPrice(position.targetAvg, position.currency)}</td>
+          <ChangeCell value={position.pctExpect} />
           {sectionShowsBuyTarget(section) ? (
             <>
               <TargetCell
@@ -511,6 +514,8 @@ function ColumnHeads({
           <>
             <SortHead metric="price" label="Price" active={sort?.key === 'price'} dir={sort?.dir} onClick={() => onToggle('price')} numeric />
             <SortHead metric="changepct" label="Chg" active={sort?.key === 'changepct'} dir={sort?.dir} onClick={() => onToggle('changepct')} numeric />
+            <SortHead metric="targetAvg" label="1Y tgt" active={sort?.key === 'targetAvg'} dir={sort?.dir} onClick={() => onToggle('targetAvg')} numeric />
+            <SortHead metric="pctExpect" label="% to 1Y" active={sort?.key === 'pctExpect'} dir={sort?.dir} onClick={() => onToggle('pctExpect')} numeric />
             {sectionShowsBuyTarget(section) ? (
               <>
                 <SortHead metric="target" label="Buy target" active={sort?.key === 'target'} dir={sort?.dir} onClick={() => onToggle('target')} numeric />

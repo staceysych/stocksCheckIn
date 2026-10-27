@@ -53,7 +53,7 @@ type HistoryChartProps = {
 export function HistoryChart({ positions, history, activeTicker }: HistoryChartProps) {
   const [ticker, setTicker] = useState(activeTicker || positions[0]?.ticker || '')
   const [mas, setMas] = useState<MaPeriod[]>([])
-  const [range, setRange] = useState<RangeId>('1y')
+  const [range, setRange] = useState<RangeId>('3m')
   const position = positions.find((row) => row.ticker === ticker) ?? positions[0] ?? null
   const closes = position ? history[position.ticker] ?? [] : []
   const rangeDays = RANGE_OPTIONS.find((option) => option.id === range)?.days ?? null
