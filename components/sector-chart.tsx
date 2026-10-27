@@ -1,27 +1,17 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import useSWR from 'swr'
+import { Loader2, Plus } from 'lucide-react'
 import { formatCompact, formatPrice } from '@/lib/format'
+import { isYahooSector, lightSectors, sectorColor, SECTOR_ETFS, type SectorIdeaGroup } from '@/lib/sectors'
 import { sectorAllocation, type Position, type SectorSlice } from '@/lib/watchlist'
+import { useWatchlist } from '@/lib/use-watchlist'
 import { cn } from '@/lib/utils'
 import { MetricTip } from '@/components/metric-tip'
-
-const SECTOR_COLORS: Record<string, string> = {
-  Technology: '#5ee0c0',
-  'Financial Services': '#8aa4d4',
-  Healthcare: '#7ec8d9',
-  'Consumer Cyclical': '#e0a35e',
-  'Communication Services': '#b08dcc',
-  Industrials: '#9aa3b2',
-  'Consumer Defensive': '#7eb87a',
-  Energy: '#e08a5e',
-  'Basic Materials': '#c4a35a',
-  'Real Estate': '#6eb5c9',
-  Utilities: '#5d9bce',
-  Unclassified: '#6b7280',
-}
-
-const FALLBACK_COLORS = ['#5ee0c0', '#8aa4d4', '#e0a35e', '#b08dcc', '#7ec8d9', '#c4a35a', '#e08a5e', '#7eb87a']
+import { YahooQuoteLink } from '@/components/yahoo-quote-link'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 type SectorChartProps = {
   positions: Position[]
@@ -38,6 +28,7 @@ export function SectorChart({ positions, onSelect }: SectorChartProps) {
   const selected = slices.find((slice) => slice.sector === active) ?? null
 
   return (
+    <div className="flex flex-col gap-4">
     <section className="overflow-hidden rounded-xl border border-border bg-card">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <h2 className="text-base font-medium tracking-tight">
@@ -127,6 +118,8 @@ export function SectorChart({ positions, onSelect }: SectorChartProps) {
         </div>
       ) : null}
     </section>
+    <LookList positions={positions} slices={slices} active={active} onOpenSector={setActive} />
+    </div>
   )
 }
 
@@ -200,11 +193,165 @@ function Donut({
   )
 }
 
-function sectorColor(sector: string) {
-  if (SECTOR_COLORS[sector]) return SECTOR_COLORS[sector]
-  let hash = 0
-  for (const char of sector) hash = (hash + char.charCodeAt(0)) % FALLBACK_COLORS.length
-  return FALLBACK_COLORS[hash]
+function LookList({
+  positions,
+  slices,
+  active,
+  onOpenSector,
+}: {
+  positions: Position[]
+  slices: SectorSlice[]
+  active: string | null
+  onOpenSector: (sector: string | null) => void
+}) {
+  const { addTicker, hasTicker } = useWatchlist()
+  const [adding, setAdding] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const light = useMemo(() => lightSectors(slices), [slices])
+  const focused = active && isYahooSector(active) ? active : null
+  const unknownSelected = Boolean(active) && !focused
+  const columns = useMemo(() => {
+    if (!focused) return light
+    const slice = slices.find((item) => item.sector === focused)
+    return [{ sector: focused, etf: SECTOR_ETFS[focused], weight: slice?.weight ?? 0 }]
+  }, [focused, light, slices])
+  const ideaLimit = focused ? 12 : 5
+  const owned = new Set(positions.map((position) => position.ticker))
+  const { data, error: loadError, isLoading } = useSWR(
+    unknownSelected || columns.length === 0
+      ? null
+      : ['sector-ideas', columns.map((item) => item.sector).join('|'), ideaLimit],
+    async () => {
+      const res = await fetch('/api/market/sector-ideas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sectors: columns.map((item) => item.sector),
+          exclude: [...owned],
+          limit: ideaLimit,
+        }),
+      })
+      const body = (await res.json().catch(() => null)) as { groups?: SectorIdeaGroup[]; error?: string } | null
+      if (!res.ok) throw new Error(body?.error || 'Could not load sector ideas.')
+      return body?.groups ?? []
+    },
+    { revalidateOnFocus: false },
+  )
+
+  const add = async (ticker: string, name: string) => {
+    setAdding(ticker)
+    setError(null)
+    try {
+      await addTicker({
+        ticker,
+        name,
+        idea: '',
+        target: null,
+        target2: null,
+        sell: null,
+        sell2: null,
+        buyUpTo: null,
+        sellUpTo: null,
+        shares: null,
+        cost: null,
+        intent: 'watch',
+      })
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : `Could not add ${ticker}.`)
+    } finally {
+      setAdding(null)
+    }
+  }
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-border bg-card">
+      <header className="border-b border-border px-4 py-3">
+        <h2 className="text-base font-medium tracking-tight">
+          <MetricTip metric="sectorIdeas">
+            <span>Look next</span>
+          </MetricTip>
+        </h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {focused
+            ? `More individual stocks in ${focused}. A look list, not a buy list.`
+            : 'Individual stocks in the three Yahoo sectors you hold least. Click a sector in your mix to look there instead.'}
+        </p>
+      </header>
+      {unknownSelected ? (
+        <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+          Look next uses Yahoo’s 11 GICS sectors. {active} doesn’t map to one.
+        </p>
+      ) : isLoading ? (
+        <p className="px-4 py-10 text-center text-sm text-muted-foreground">Loading Yahoo holdings…</p>
+      ) : loadError ? (
+        <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+          {loadError instanceof Error ? loadError.message : 'Could not load Yahoo holdings.'}
+        </p>
+      ) : (
+        <div className={cn('grid gap-5 p-4', focused ? 'lg:grid-cols-1' : 'lg:grid-cols-3')}>
+          {columns.map((item) => {
+            const group = data?.find((row) => row.sector === item.sector)
+            const ideas = (group?.ideas ?? []).filter((idea) => !hasTicker(idea.ticker))
+            return (
+              <div key={item.sector} className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => onOpenSector(focused ? null : item.sector)}
+                  className="mb-2 flex w-full items-center gap-2 text-left"
+                >
+                  <span className="size-2.5 shrink-0 rounded-sm" style={{ background: sectorColor(item.sector) }} />
+                  <span className="min-w-0 flex-1 truncate text-sm">{item.sector}</span>
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                    {(item.weight * 100).toFixed(1)}%
+                  </span>
+                </button>
+                {ideas.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No new names from Yahoo for this sector.</p>
+                ) : (
+                  <ul className={cn('grid gap-1.5', focused && 'sm:grid-cols-2')}>
+                    {ideas.map((idea) => (
+                      <li key={idea.ticker} className="flex items-center gap-2 rounded-lg px-1 py-0.5 hover:bg-accent">
+                        <YahooQuoteLink ticker={idea.ticker} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-mono text-xs">{idea.ticker}</p>
+                          <p className="truncate text-[12px] text-muted-foreground">{idea.name || '—'}</p>
+                        </div>
+                        {idea.holdingPct !== null ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              delay={150}
+                              className="cursor-pointer bg-transparent p-0 font-mono text-[12px] tabular-nums text-muted-foreground"
+                            >
+                              {idea.holdingPct.toFixed(1)}%
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Weight in the {item.sector} sector ETF. How large this name is in the sector, not in your
+                              portfolio.
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          disabled={adding === idea.ticker}
+                          onClick={() => void add(idea.ticker, idea.name)}
+                        >
+                          {adding === idea.ticker ? <Loader2 className="animate-spin" aria-hidden /> : <Plus aria-hidden />}
+                          Add
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {error ? <p className="px-4 pb-3 text-sm text-destructive">{error}</p> : null}
+    </section>
+  )
 }
 
 function donutArcs(slices: SectorSlice[]) {

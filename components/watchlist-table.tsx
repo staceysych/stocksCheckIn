@@ -115,8 +115,8 @@ export function WatchlistTable({ positions, view, selectedRow, onSelect }: Watch
 }
 
 function sectionTitleClass(section: PlanSection) {
-  if (section === 'buy' || section === 'add') return 'text-buy'
-  if (section === 'trim' || section === 'sell') return 'text-sell'
+  if (section === 'buy') return 'text-buy'
+  if (section === 'sell') return 'text-sell'
   return undefined
 }
 

@@ -219,28 +219,28 @@ export function intentClass(intent: Intent) {
   return 'text-muted-foreground'
 }
 
-export const PLAN_SECTIONS = ['buy', 'add', 'trim', 'sell', 'watchHold'] as const
+export const PLAN_SECTIONS = ['buy', 'sell', 'watchHold'] as const
 export type PlanSection = (typeof PLAN_SECTIONS)[number]
 
 export const PLAN_SECTION_LABEL: Record<PlanSection, string> = {
   buy: 'Buy',
-  add: 'Buy more',
-  trim: 'Trim',
-  sell: 'Sell all',
+  sell: 'Sell',
   watchHold: 'Watch and hold',
 }
 
 export function planSection(intent: Intent): PlanSection {
   if (intent === 'watch' || intent === 'hold') return 'watchHold'
+  if (intent === 'add') return 'buy'
+  if (intent === 'trim') return 'sell'
   return intent
 }
 
 export function sectionShowsBuyTarget(section: PlanSection) {
-  return section === 'buy' || section === 'add' || section === 'watchHold'
+  return section === 'buy'
 }
 
 export function sectionShowsSellTarget(section: PlanSection) {
-  return section === 'trim' || section === 'sell'
+  return section === 'sell'
 }
 
 export function groupByPlanSection(positions: Position[]) {
@@ -303,12 +303,12 @@ export function planTargetHint(intent: Intent) {
     case 'hold':
       return 'Hold doesn’t use a buy or sell price. Switch the plan to set one.'
     case 'watch':
-      return 'Optional: add a buy-under price if you might enter.'
+      return 'Watch doesn’t use a buy or sell price. Switch the plan to Buy if you want a target.'
   }
 }
 
 export function showBuyLimits(intent: Intent) {
-  return intent === 'buy' || intent === 'add' || intent === 'watch'
+  return intent === 'buy' || intent === 'add'
 }
 
 export function showSellLimits(intent: Intent) {

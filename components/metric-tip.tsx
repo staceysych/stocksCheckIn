@@ -84,6 +84,10 @@ function metricLabel(metric: MetricId) {
       return 'sell up to'
     case 'diversification':
       return 'sector mix'
+    case 'sectorIdeas':
+      return 'look list'
+    case 'holdingPct':
+      return 'sector weight'
     default:
       return metric
   }

@@ -164,11 +164,9 @@ async function quoteSummaryFor(ticker: string): Promise<SummaryLike | null> {
 }
 
 async function chartCloses(ticker: string): Promise<DailyClose[]> {
-  const period1 = new Date()
-  period1.setUTCDate(period1.getUTCDate() - 320)
   try {
     const chart = await yahooFinance.chart(ticker, {
-      period1,
+      period1: '1970-01-01',
       interval: '1d',
     })
     const quotes = Array.isArray(chart?.quotes) ? chart.quotes : []

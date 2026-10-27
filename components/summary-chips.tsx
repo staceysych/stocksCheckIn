@@ -16,20 +16,21 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
   if (positions.length === 0) return null
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       <Chip metric="buyZone" title={`Buy zone (${buyZone.length})`}>
         {buyZone.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No names at or below your target.</p>
+          <p className="text-xs text-muted-foreground">None at target.</p>
         ) : (
-          <ul className="flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-1.5">
             {buyZone.map((position) => (
               <li key={position.row}>
                 <button
                   type="button"
                   onClick={() => onSelect(position.row)}
-                  className="rounded-md bg-buy/15 px-2 py-1 font-mono text-xs text-buy hover:bg-buy/25"
+                  title={`${position.ticker} ${formatPrice(position.price, position.currency)} ≤ ${formatPrice(position.target, position.currency)}`}
+                  className="rounded-md bg-buy/15 px-1.5 py-0.5 font-mono text-xs text-buy hover:bg-buy/25"
                 >
-                  {position.ticker} {formatPrice(position.price, position.currency)} ≤ {formatPrice(position.target, position.currency)}
+                  {position.ticker}
                 </button>
               </li>
             ))}
@@ -38,18 +39,18 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
       </Chip>
       <Chip metric="sellZone" title={`Sell zone (${sellZone.length})`}>
         {sellZone.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No names at or above your sell price.</p>
+          <p className="text-xs text-muted-foreground">None at target.</p>
         ) : (
-          <ul className="flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-1.5">
             {sellZone.map((position) => (
               <li key={position.row}>
                 <button
                   type="button"
                   onClick={() => onSelect(position.row)}
-                  className="rounded-md bg-sell/15 px-2 py-1 font-mono text-xs text-sell hover:bg-sell/25"
+                  title={`${position.ticker} ${formatPrice(position.price, position.currency)} ≥ ${formatPrice(position.sell, position.currency)}`}
+                  className="rounded-md bg-sell/15 px-1.5 py-0.5 font-mono text-xs text-sell hover:bg-sell/25"
                 >
-                  {position.ticker} {formatPrice(position.price, position.currency)} ≥{' '}
-                  {formatPrice(position.sell, position.currency)}
+                  {position.ticker}
                 </button>
               </li>
             ))}
@@ -58,13 +59,13 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
       </Chip>
       {near.length > 0 ? (
         <Chip metric="nearBuy" title={`Near buy (${near.length})`}>
-          <ul className="flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-1.5">
             {near.map((position) => (
               <li key={position.row}>
                 <button
                   type="button"
                   onClick={() => onSelect(position.row)}
-                  className="rounded-md bg-buy/10 px-2 py-1 font-mono text-xs text-buy/80 hover:bg-buy/20"
+                  className="rounded-md bg-buy/10 px-1.5 py-0.5 font-mono text-xs text-buy/80 hover:bg-buy/20"
                 >
                   {position.ticker} {formatPct(position.pctToTarget)}
                 </button>
@@ -75,13 +76,13 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
       ) : null}
       {nearSell.length > 0 ? (
         <Chip metric="nearSell" title={`Near sell (${nearSell.length})`}>
-          <ul className="flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-1.5">
             {nearSell.map((position) => (
               <li key={position.row}>
                 <button
                   type="button"
                   onClick={() => onSelect(position.row)}
-                  className="rounded-md bg-sell/10 px-2 py-1 font-mono text-xs text-sell/80 hover:bg-sell/20"
+                  className="rounded-md bg-sell/10 px-1.5 py-0.5 font-mono text-xs text-sell/80 hover:bg-sell/20"
                 >
                   {position.ticker} {formatPct(position.pctToSell)}
                 </button>
@@ -94,7 +95,7 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
         {movers.length === 0 ? (
           <p className="text-xs text-muted-foreground">Quotes will appear after a refresh.</p>
         ) : (
-          <ul className="flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-1.5">
             {movers.map((position) => {
               const up = (position.changepct ?? 0) >= 0
               return (
@@ -102,7 +103,7 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
                   <button
                     type="button"
                     onClick={() => onSelect(position.row)}
-                    className="rounded-md bg-secondary px-2 py-1 font-mono text-xs hover:bg-accent"
+                    className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-xs hover:bg-accent"
                   >
                     {position.ticker}{' '}
                     <span className={up ? 'text-up' : 'text-down'}>{formatPct(position.changepct)}</span>
@@ -127,8 +128,8 @@ function Chip({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-border bg-card px-4 py-3">
-      <h2 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+    <section className="rounded-xl border border-border bg-card px-3 py-2">
+      <h2 className="mb-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
         <MetricTip metric={metric}>
           <span>{title}</span>
         </MetricTip>

@@ -24,13 +24,25 @@ const TEXT = '#9aa3b2'
 const CROSS = 'rgba(255,255,255,0.35)'
 
 const MA_OPTIONS = [
-  { period: 20, color: '#7ec8d9' },
-  { period: 50, color: '#8aa4d4' },
-  { period: 100, color: '#b08dcc' },
-  { period: 200, color: '#c4a35a' },
+  { period: 20, color: '#ff8a4a' },
+  { period: 50, color: '#4d8aff' },
+  { period: 100, color: '#ff5aa5' },
+  { period: 200, color: '#e8c547' },
+] as const
+
+const RANGE_OPTIONS = [
+  { id: '7d', label: '7D', days: 7 },
+  { id: '15d', label: '15D', days: 15 },
+  { id: '1m', label: '1M', days: 30 },
+  { id: '3m', label: '3M', days: 91 },
+  { id: '6m', label: '6M', days: 182 },
+  { id: '1y', label: '1Y', days: 365 },
+  { id: '3y', label: '3Y', days: 1096 },
+  { id: 'max', label: 'Max', days: null },
 ] as const
 
 type MaPeriod = (typeof MA_OPTIONS)[number]['period']
+type RangeId = (typeof RANGE_OPTIONS)[number]['id']
 
 type HistoryChartProps = {
   positions: Position[]
@@ -41,8 +53,11 @@ type HistoryChartProps = {
 export function HistoryChart({ positions, history, activeTicker }: HistoryChartProps) {
   const [ticker, setTicker] = useState(activeTicker || positions[0]?.ticker || '')
   const [mas, setMas] = useState<MaPeriod[]>([])
+  const [range, setRange] = useState<RangeId>('1y')
   const position = positions.find((row) => row.ticker === ticker) ?? positions[0] ?? null
   const closes = position ? history[position.ticker] ?? [] : []
+  const rangeDays = RANGE_OPTIONS.find((option) => option.id === range)?.days ?? null
+  const visibleWindow = rangeWindow(closes, rangeDays)
 
   const toggleMa = (period: MaPeriod) => {
     setMas((current) => (current.includes(period) ? current.filter((item) => item !== period) : [...current, period]))
@@ -103,11 +118,14 @@ export function HistoryChart({ positions, history, activeTicker }: HistoryChartP
               onClick={() => toggleMa(option.period)}
               title={ready ? (on ? `Hide MA${option.period}` : `Add MA${option.period}`) : `Need ${option.period} daily closes`}
               className={cn(
-                'rounded-md px-2 py-1 font-mono text-xs',
-                on ? 'text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                !ready && 'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
+                'rounded-md border px-2 py-1 font-mono text-xs',
+                !ready && 'cursor-not-allowed opacity-40',
               )}
-              style={on ? { background: `${option.color}33`, color: option.color } : undefined}
+              style={{
+                color: option.color,
+                background: on ? `${option.color}2e` : `${option.color}12`,
+                borderColor: on ? `${option.color}80` : `${option.color}3d`,
+              }}
             >
               MA{option.period}
             </button>
@@ -119,10 +137,29 @@ export function HistoryChart({ positions, history, activeTicker }: HistoryChartP
         {position && showSellLimits(position.intent) && position.sell !== null ? (
           <LegendDot color={SELL} label="Sell above" />
         ) : null}
+        <div className="ml-auto flex flex-wrap gap-1">
+          {RANGE_OPTIONS.map((option) => {
+            const selected = option.id === range
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setRange(option.id)}
+                title={rangeTitle(option.id)}
+                className={cn(
+                  'rounded-md px-2 py-1 font-mono text-xs hover:bg-accent',
+                  selected ? 'bg-accent text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
       {closes.length === 0 ? (
         <p className="px-4 py-16 text-center text-sm text-muted-foreground">
-          No daily closes for this ticker yet. Refresh to load about a year of Yahoo history.
+          No daily closes for this ticker yet. Refresh to load Yahoo history.
         </p>
       ) : (
         <>
@@ -133,9 +170,12 @@ export function HistoryChart({ positions, history, activeTicker }: HistoryChartP
             buy={position && showBuyLimits(position.intent) ? position.target : null}
             sell={position && showSellLimits(position.intent) ? position.sell : null}
             mas={mas}
+            rangeDays={rangeDays}
           />
           <p className="px-4 pb-3 text-[12px] text-muted-foreground">
-            {formatDate(closes[0].date)} – {formatDate(closes[closes.length - 1].date)}. Scroll to zoom, drag to pan.
+            {visibleWindow
+              ? `${formatDate(visibleWindow.from)} – ${formatDate(visibleWindow.to)}. Scroll to zoom, drag to pan.`
+              : 'Scroll to zoom, drag to pan.'}
           </p>
         </>
       )}
@@ -158,15 +198,18 @@ function PriceCanvas({
   buy,
   sell,
   mas,
+  rangeDays,
 }: {
   closes: DailyClose[]
   currency: string
   buy: number | null
   sell: number | null
   mas: MaPeriod[]
+  rangeDays: number | null
 }) {
   const host = useRef<HTMLDivElement>(null)
   const visibleRange = useRef<LogicalRange | null>(null)
+  const appliedDays = useRef(rangeDays)
   const pricePoints = useMemo(
     () => closes.map((row) => ({ time: row.date as Time, value: row.close })),
     [closes],
@@ -237,7 +280,7 @@ function PriceCanvas({
       chart
         .addSeries(LineSeries, {
           color: option.color,
-          lineWidth: 1,
+          lineWidth: 2,
           priceLineVisible: false,
           lastValueVisible: false,
           crosshairMarkerVisible: false,
@@ -246,8 +289,12 @@ function PriceCanvas({
     }
 
     const scale = chart.timeScale()
+    if (appliedDays.current !== rangeDays) {
+      visibleRange.current = null
+      appliedDays.current = rangeDays
+    }
     if (visibleRange.current) scale.setVisibleLogicalRange(visibleRange.current)
-    else scale.fitContent()
+    else applyVisibleRange(scale, closes, rangeDays)
 
     const rememberRange = (range: LogicalRange | null) => {
       if (range) visibleRange.current = range
@@ -258,9 +305,57 @@ function PriceCanvas({
       scale.unsubscribeVisibleLogicalRangeChange(rememberRange)
       chart.remove()
     }
-  }, [pricePoints, closes, mas, currency, buy, sell])
+  }, [pricePoints, closes, mas, currency, buy, sell, rangeDays])
 
   return <div ref={host} className="h-[420px] w-full" />
+}
+
+function rangeTitle(id: RangeId) {
+  switch (id) {
+    case '7d':
+      return '7 days'
+    case '15d':
+      return '15 days'
+    case '1m':
+      return 'Month'
+    case '3m':
+      return '3 months'
+    case '6m':
+      return '6 months'
+    case '1y':
+      return 'Year'
+    case '3y':
+      return '3 years'
+    case 'max':
+      return 'Max'
+  }
+}
+
+function rangeWindow(closes: DailyClose[], days: number | null) {
+  if (closes.length === 0) return null
+  const last = closes[closes.length - 1]
+  if (days === null) return { from: closes[0].date, to: last.date }
+  const fromMs = Date.parse(last.date) - days * 86_400_000
+  const firstMs = Date.parse(closes[0].date)
+  const from = new Date(Math.max(fromMs, firstMs)).toISOString().slice(0, 10)
+  return { from, to: last.date }
+}
+
+function applyVisibleRange(
+  scale: { setVisibleRange: (range: { from: Time; to: Time }) => void; fitContent: () => void },
+  closes: DailyClose[],
+  days: number | null,
+) {
+  const window = rangeWindow(closes, days)
+  if (!window || days === null) {
+    scale.fitContent()
+    return
+  }
+  try {
+    scale.setVisibleRange({ from: window.from as Time, to: window.to as Time })
+  } catch {
+    scale.fitContent()
+  }
 }
 
 function averageSeries(closes: DailyClose[], n: number) {

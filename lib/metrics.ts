@@ -31,6 +31,8 @@ export const METRIC_HELP = {
   pctExpect: 'Upside or downside from last price to the average 1-year analyst target.',
   sector: 'Yahoo’s sector / industry label.',
   diversification: 'How your owned names split across Yahoo sectors, by market value. Switch to Names to count every ticker on the list.',
+  sectorIdeas: 'When nothing is selected, individual stocks in the three Yahoo sectors you hold least. Click a sector in your mix to look at more names there. Already on your watchlist are skipped.',
+  holdingPct: 'Weight in the sector ETF Yahoo uses for this industry. How large the name is in the sector — not your portfolio weight.',
   earnings: 'Next earnings date from Yahoo, if they publish one.',
   exDiv: 'Next ex-dividend date. Buy on or after this date and you do not get that dividend.',
   tradetime: 'When Yahoo last stamped this quote. Delayed, not your broker’s tape.',
