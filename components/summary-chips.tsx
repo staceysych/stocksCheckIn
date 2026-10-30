@@ -28,7 +28,7 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
                   type="button"
                   onClick={() => onSelect(position.row)}
                   title={`${position.ticker} ${formatPrice(position.price, position.currency)} ≤ ${formatPrice(position.target, position.currency)}`}
-                  className="rounded-md bg-buy/15 px-1.5 py-0.5 font-mono text-xs text-buy hover:bg-buy/25"
+                  className="rounded-full bg-buy/15 px-2 py-0.5 font-mono text-xs text-buy hover:bg-buy/25"
                 >
                   {position.ticker}
                 </button>
@@ -48,7 +48,7 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
                   type="button"
                   onClick={() => onSelect(position.row)}
                   title={`${position.ticker} ${formatPrice(position.price, position.currency)} ≥ ${formatPrice(position.sell, position.currency)}`}
-                  className="rounded-md bg-sell/15 px-1.5 py-0.5 font-mono text-xs text-sell hover:bg-sell/25"
+                  className="rounded-full bg-sell/15 px-2 py-0.5 font-mono text-xs text-sell hover:bg-sell/25"
                 >
                   {position.ticker}
                 </button>
@@ -65,7 +65,7 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
                 <button
                   type="button"
                   onClick={() => onSelect(position.row)}
-                  className="rounded-md bg-buy/10 px-1.5 py-0.5 font-mono text-xs text-buy/80 hover:bg-buy/20"
+                  className="rounded-full bg-buy/10 px-2 py-0.5 font-mono text-xs text-buy/80 hover:bg-buy/20"
                 >
                   {position.ticker} {formatPct(position.pctToTarget)}
                 </button>
@@ -82,7 +82,7 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
                 <button
                   type="button"
                   onClick={() => onSelect(position.row)}
-                  className="rounded-md bg-sell/10 px-1.5 py-0.5 font-mono text-xs text-sell/80 hover:bg-sell/20"
+                  className="rounded-full bg-sell/10 px-2 py-0.5 font-mono text-xs text-sell/80 hover:bg-sell/20"
                 >
                   {position.ticker} {formatPct(position.pctToSell)}
                 </button>
@@ -103,7 +103,7 @@ export function SummaryChips({ positions, onSelect }: { positions: Position[]; o
                   <button
                     type="button"
                     onClick={() => onSelect(position.row)}
-                    className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-xs hover:bg-accent"
+                    className="rounded-full bg-sky-500/15 px-2 py-0.5 font-mono text-xs text-sky-200 ring-1 ring-sky-400/25 hover:bg-sky-500/25"
                   >
                     {position.ticker}{' '}
                     <span className={up ? 'text-up' : 'text-down'}>{formatPct(position.changepct)}</span>

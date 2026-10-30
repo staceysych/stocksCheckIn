@@ -1,8 +1,12 @@
-export const SCHEMA_VERSION = 5
+export const SCHEMA_VERSION = 6
 export const WORKBOOK_NAME = 'stocks-watchlist'
 export const WATCHLIST_SHEET = 'Watchlist'
 export const META_SHEET = '_Meta'
 export const HISTORY_SHEET = 'History'
+export const ACTIVITY_SHEET = 'Activity'
+
+export const ACTIVITY_HEADERS = ['at', 'ticker', 'field', 'from', 'to'] as const
+export const ACTIVITY_RANGE = `${ACTIVITY_SHEET}!A:E`
 
 export const HEADERS = [
   'ticker',

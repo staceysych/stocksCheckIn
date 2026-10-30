@@ -1,4 +1,5 @@
 import {
+  ACTIVITY_RANGE,
   HEADERS,
   HISTORY_RANGE,
   HISTORY_SHEET,
@@ -13,6 +14,12 @@ import {
   sheetValue,
 } from '@/lib/schema'
 import { fetchSnapshots, type MarketSnapshot } from '@/lib/market'
+import {
+  activityByTicker,
+  activityRow,
+  parseActivityRows,
+  type TargetActivity,
+} from '@/lib/activity'
 import {
   applySnapshot,
   parseHistoryRows,
@@ -41,6 +48,7 @@ export type WorkbookRef = {
   watchlistSheetId: number
   metaSheetId: number
   historySheetId: number
+  activitySheetId: number
   schemaVersion?: number
 }
 
@@ -68,6 +76,7 @@ export async function readWatchlist(token: string, spreadsheetId: string): Promi
     `ranges=${encodeURIComponent(WATCHLIST_RANGE)}`,
     `ranges=${encodeURIComponent(`${META_SHEET}!A1:B2`)}`,
     `ranges=${encodeURIComponent(HISTORY_RANGE)}`,
+    `ranges=${encodeURIComponent(ACTIVITY_RANGE)}`,
     'valueRenderOption=UNFORMATTED_VALUE',
     'dateTimeRenderOption=FORMATTED_STRING',
   ].join('&')
@@ -77,14 +86,19 @@ export async function readWatchlist(token: string, spreadsheetId: string): Promi
   const watchlistValues = data.valueRanges?.[0]?.values ?? []
   const metaValues = data.valueRanges?.[1]?.values ?? []
   const historyValues = data.valueRanges?.[2]?.values ?? []
+  const activityValues = data.valueRanges?.[3]?.values ?? []
   const lastRefresh = metaValues.find((row) => String(row[0]) === 'lastRefresh')?.[1]
   const headers = (watchlistValues[0] ?? []).map((value) => String(value))
   const aligned = alignRows(headers, watchlistValues)
+  const activity = activityByTicker(parseActivityRows(activityValues))
 
   return {
     spreadsheetId,
     spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
-    positions: parseWatchlistRows(aligned),
+    positions: parseWatchlistRows(aligned).map((position) => ({
+      ...position,
+      targetActivity: activity[position.ticker] ?? [],
+    })),
     history: parseHistoryRows(historyValues),
     lastRefresh: lastRefresh ? String(lastRefresh) : null,
   }
@@ -147,6 +161,18 @@ export async function appendPosition(
     method: 'POST',
     body: JSON.stringify({ values: [dataRow(input, snapshot)] }),
   })
+}
+
+export async function appendActivity(token: string, spreadsheetId: string, events: TargetActivity[]) {
+  if (events.length === 0) return
+  await sheetsFetch(
+    token,
+    `${SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(ACTIVITY_RANGE)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ values: events.map(activityRow) }),
+    },
+  )
 }
 
 export async function updatePositionFields(

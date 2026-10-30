@@ -1,5 +1,6 @@
 import { HEADER_INDEX, HEADERS, type Header } from '@/lib/schema'
 import type { DailyClose, MarketSnapshot } from '@/lib/market'
+import type { TargetActivity } from '@/lib/activity'
 
 export const INTENTS = ['buy', 'add', 'trim', 'sell', 'watch', 'hold'] as const
 export type Intent = (typeof INTENTS)[number]
@@ -71,6 +72,7 @@ export type Position = {
   exDiv: string
   earnings: string
   quoteUnavailable: boolean
+  targetActivity: TargetActivity[]
   pctToTarget: number | null
   pctToSell: number | null
   pctVsMa200: number | null
@@ -236,11 +238,11 @@ export function planSection(intent: Intent): PlanSection {
 }
 
 export function sectionShowsBuyTarget(section: PlanSection) {
-  return section === 'buy'
+  return section === 'buy' || section === 'watchHold'
 }
 
 export function sectionShowsSellTarget(section: PlanSection) {
-  return section === 'sell'
+  return section === 'sell' || section === 'watchHold'
 }
 
 export function groupByPlanSection(positions: Position[]) {
@@ -301,18 +303,25 @@ export function planTargetHint(intent: Intent) {
     case 'sell':
       return 'Set a sell-above price so the row lights up when it’s time to sell all.'
     case 'hold':
-      return 'Hold doesn’t use a buy or sell price. Switch the plan to set one.'
+      return 'Optional: add buy-under and sell-above prices to watch zones without changing the plan.'
     case 'watch':
-      return 'Watch doesn’t use a buy or sell price. Switch the plan to Buy if you want a target.'
+      return 'Optional: add buy-under and sell-above prices so the row lights up if it enters a zone.'
   }
 }
 
 export function showBuyLimits(intent: Intent) {
-  return intent === 'buy' || intent === 'add'
+  return intent === 'buy' || intent === 'add' || intent === 'watch' || intent === 'hold'
 }
 
 export function showSellLimits(intent: Intent) {
-  return intent === 'sell' || intent === 'trim'
+  return intent === 'sell' || intent === 'trim' || intent === 'watch' || intent === 'hold'
+}
+
+export function hasUserTarget(position: Pick<Position, 'intent' | 'target' | 'sell'>) {
+  return (
+    (showBuyLimits(position.intent) && position.target !== null) ||
+    (showSellLimits(position.intent) && position.sell !== null)
+  )
 }
 
 export function exclusiveLimits(
@@ -324,32 +333,38 @@ export function exclusiveLimits(
     sellUpTo: number | null
   },
 ) {
-  if (showSellLimits(intent)) {
-    return {
-      target: null,
-      target2: null,
-      buyUpTo: null,
-      sell: limits.sell,
-      sell2: null,
-      sellUpTo: limits.sellUpTo,
-    }
+  const usingBuy = showBuyLimits(intent)
+  const usingSell = showSellLimits(intent)
+  return {
+    target: usingBuy ? limits.target : null,
+    target2: null,
+    buyUpTo: usingBuy ? limits.buyUpTo : null,
+    sell: usingSell ? limits.sell : null,
+    sell2: null,
+    sellUpTo: usingSell ? limits.sellUpTo : null,
   }
-  if (showBuyLimits(intent)) {
-    return {
-      target: limits.target,
-      target2: null,
-      buyUpTo: limits.buyUpTo,
-      sell: null,
-      sell2: null,
-      sellUpTo: null,
-    }
-  }
-  return { target: null, target2: null, buyUpTo: null, sell: null, sell2: null, sellUpTo: null }
 }
 
 export function sizeNotional(qty: number | null, price: number | null) {
   if (qty === null || price === null) return null
   return qty * price
+}
+
+export function addShareLot(
+  currentShares: number | null,
+  currentCost: number | null,
+  qty: number,
+  price: number,
+) {
+  const held = currentShares !== null && currentShares > 0 ? currentShares : 0
+  const avg = held > 0 && currentCost !== null ? currentCost : 0
+  const shares = held + qty
+  const cost = shares === 0 ? null : roundMoney((avg * held + price * qty) / shares)
+  return { shares, cost }
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 1e6) / 1e6
 }
 
 export const CLOSE_TO_TARGET_PCT = 5
@@ -444,6 +459,7 @@ export function parseWatchlistRows(rows: unknown[][]): Position[] {
         exDiv: parseText(cell(row, 'exDiv')),
         earnings: parseText(cell(row, 'earnings')),
         quoteUnavailable,
+        targetActivity: [],
       }),
     )
   })

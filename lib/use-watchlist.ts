@@ -5,8 +5,10 @@ import useSWR from 'swr'
 import { refreshAgeMinutes } from '@/lib/format'
 import { getAccessToken, useGoogleSession } from '@/lib/google-auth'
 import { fetchSnapshots } from '@/lib/market'
+import { targetActivityEvents } from '@/lib/activity'
 import {
   SheetsError,
+  appendActivity,
   appendPosition,
   deletePositionRow,
   readWatchlist,
@@ -123,24 +125,37 @@ export function useWatchlist() {
       const ticker = input.ticker.trim().toUpperCase()
       await run(async () => {
         const [yahoo] = await fetchSnapshots([ticker])
-        await withWorkbook(user.sub, (token, ref) =>
-          appendPosition(token, ref.spreadsheetId, { ...input, ticker, name: input.name || yahoo?.name || '' }, yahoo),
-        )
+        const events = targetActivityEvents(ticker, { target: null, sell: null }, input)
+        await withWorkbook(user.sub, async (token, ref) => {
+          await appendPosition(token, ref.spreadsheetId, { ...input, ticker, name: input.name || yahoo?.name || '' }, yahoo)
+          await appendActivity(token, ref.spreadsheetId, events)
+        })
         return withWorkbook(user.sub, (token, ref) => readWatchlist(token, ref.spreadsheetId))
       }, 'saving')
     },
     updateTicker: async (row: number, patch: PositionUserPatch) => {
       if (!user) return
+      const current = snapshot.positions.find((position) => position.row === row)
+      const events = current
+        ? targetActivityEvents(current.ticker, { target: current.target, sell: current.sell }, patch)
+        : []
       const optimistic: WatchlistSnapshot = {
         ...snapshot,
         positions: snapshot.positions.map((position) => {
           if (position.row !== row) return position
-          return derivePosition({ ...position, ...patch })
+          return derivePosition({
+            ...position,
+            ...patch,
+            targetActivity: [...events, ...position.targetActivity],
+          })
         }),
       }
       await mutate(optimistic, { revalidate: false })
       await run(async () => {
-        await withWorkbook(user.sub, (token, ref) => updatePositionFields(token, ref.spreadsheetId, row, patch))
+        await withWorkbook(user.sub, async (token, ref) => {
+          await updatePositionFields(token, ref.spreadsheetId, row, patch)
+          await appendActivity(token, ref.spreadsheetId, events)
+        })
         return withWorkbook(user.sub, (token, ref) => readWatchlist(token, ref.spreadsheetId))
       }, 'saving')
     },

@@ -1,4 +1,6 @@
 import {
+  ACTIVITY_HEADERS,
+  ACTIVITY_SHEET,
   HEADERS,
   HISTORY_SHEET,
   META_SHEET,
@@ -31,7 +33,12 @@ function remembered(userSub: string): WorkbookRef | null {
 }
 
 function isCurrentWorkbook(ref: WorkbookRef | null | undefined): ref is WorkbookRef {
-  return Boolean(ref?.spreadsheetId && ref.historySheetId != null && ref.schemaVersion === SCHEMA_VERSION)
+  return Boolean(
+    ref?.spreadsheetId &&
+      ref.historySheetId != null &&
+      ref.activitySheetId != null &&
+      ref.schemaVersion === SCHEMA_VERSION,
+  )
 }
 
 function remember(userSub: string, ref: WorkbookRef) {
@@ -70,8 +77,8 @@ async function searchWorkbook(token: string) {
   return data.files?.[0]?.id ?? null
 }
 
-function headerCells() {
-  return HEADERS.map((header) => ({
+function headerCells(headers: readonly string[]) {
+  return headers.map((header) => ({
     userEnteredValue: { stringValue: header },
     userEnteredFormat: { textFormat: { bold: true } },
   }))
@@ -96,7 +103,7 @@ async function createWorkbook(token: string) {
             {
               startRow: 0,
               startColumn: 0,
-              rowData: [{ values: headerCells() }],
+              rowData: [{ values: headerCells(HEADERS) }],
             },
           ],
         },
@@ -109,8 +116,22 @@ async function createWorkbook(token: string) {
         },
         {
           properties: {
-            title: META_SHEET,
+            title: ACTIVITY_SHEET,
             index: 2,
+            gridProperties: { frozenRowCount: 1, rowCount: 2000, columnCount: ACTIVITY_HEADERS.length + 1 },
+          },
+          data: [
+            {
+              startRow: 0,
+              startColumn: 0,
+              rowData: [{ values: headerCells(ACTIVITY_HEADERS) }],
+            },
+          ],
+        },
+        {
+          properties: {
+            title: META_SHEET,
+            index: 3,
             hidden: true,
             gridProperties: { rowCount: 10, columnCount: 2 },
           },
@@ -147,14 +168,17 @@ function refFromSheets(spreadsheetId: string, sheets: SheetProperties[]): Workbo
   const watchlist = sheets.find((sheet) => sheet.properties?.title === WATCHLIST_SHEET)
   const meta = sheets.find((sheet) => sheet.properties?.title === META_SHEET)
   const history = sheets.find((sheet) => sheet.properties?.title === HISTORY_SHEET)
+  const activity = sheets.find((sheet) => sheet.properties?.title === ACTIVITY_SHEET)
   if (watchlist?.properties?.sheetId == null) throw new SheetsError('Watchlist sheet is missing.')
   if (meta?.properties?.sheetId == null) throw new SheetsError('Meta sheet is missing.')
   if (history?.properties?.sheetId == null) throw new SheetsError('History sheet is missing.')
+  if (activity?.properties?.sheetId == null) throw new SheetsError('Activity sheet is missing.')
   return {
     spreadsheetId,
     watchlistSheetId: watchlist.properties.sheetId,
     metaSheetId: meta.properties.sheetId,
     historySheetId: history.properties.sheetId,
+    activitySheetId: activity.properties.sheetId,
   }
 }
 
@@ -176,6 +200,7 @@ async function ensureSchema(token: string, spreadsheetId: string): Promise<Workb
   const hasWatchlist = Boolean(watchlist)
   const hasMeta = sheets.some((sheet) => sheet.properties?.title === META_SHEET)
   const hasHistory = sheets.some((sheet) => sheet.properties?.title === HISTORY_SHEET)
+  const hasActivity = sheets.some((sheet) => sheet.properties?.title === ACTIVITY_SHEET)
 
   if (!hasWatchlist) {
     requests.push({
@@ -203,6 +228,16 @@ async function ensureSchema(token: string, spreadsheetId: string): Promise<Workb
         properties: {
           title: HISTORY_SHEET,
           gridProperties: { frozenRowCount: 1, rowCount: 320, columnCount: 80 },
+        },
+      },
+    })
+  }
+  if (!hasActivity) {
+    requests.push({
+      addSheet: {
+        properties: {
+          title: ACTIVITY_SHEET,
+          gridProperties: { frozenRowCount: 1, rowCount: 2000, columnCount: ACTIVITY_HEADERS.length + 1 },
         },
       },
     })
@@ -252,6 +287,23 @@ async function ensureSchema(token: string, spreadsheetId: string): Promise<Workb
       {
         method: 'PUT',
         body: JSON.stringify({ values: [missing] }),
+      },
+    )
+  }
+
+  const activityHeaderRes = await sheetsFetch(
+    token,
+    `${SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(`${ACTIVITY_SHEET}!1:1`)}`,
+  )
+  const activityHeaderData = (await activityHeaderRes.json()) as { values?: unknown[][] }
+  const activityHeaders = (activityHeaderData.values?.[0] ?? []).map((value) => String(value))
+  if (activityHeaders[0] !== 'at') {
+    await sheetsFetch(
+      token,
+      `${SHEETS_API}/${spreadsheetId}/values/${encodeURIComponent(`${ACTIVITY_SHEET}!A1`)}?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ values: [Array.from(ACTIVITY_HEADERS)] }),
       },
     )
   }

@@ -88,6 +88,8 @@ function metricLabel(metric: MetricId) {
       return 'look list'
     case 'holdingPct':
       return 'sector weight'
+    case 'sectorOverview':
+      return 'sectors overview'
     default:
       return metric
   }

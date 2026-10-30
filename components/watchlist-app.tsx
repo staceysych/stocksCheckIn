@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Plus, RefreshCw } from 'lucide-react'
 import { GOOGLE_CLIENT_ID, useGoogleSession } from '@/lib/google-auth'
@@ -15,7 +15,18 @@ import { SignInView, Mark } from '@/components/sign-in-view'
 import { AccountButton } from '@/components/account-button'
 import { AddTickerDialog } from '@/components/add-ticker-dialog'
 import { WatchlistTable, type TableView } from '@/components/watchlist-table'
+import { TableFiltersBar } from '@/components/table-filters'
+import {
+  applyFilters,
+  DEFAULT_SORT,
+  EMPTY_FILTERS,
+  isTableView,
+  nextSort,
+  sortPositions,
+  type TableFilters,
+} from '@/lib/table-query'
 import { SectorChart } from '@/components/sector-chart'
+import { SectorOverview } from '@/components/sector-overview'
 import { WatchlistCalendar } from '@/components/watchlist-calendar'
 import { PositionDrawer } from '@/components/position-drawer'
 import { SummaryChips } from '@/components/summary-chips'
@@ -43,8 +54,14 @@ function Shell() {
   const [adding, setAdding] = useState(false)
   const [view, setView] = useState<TableView>('overview')
   const [selectedRow, setSelectedRow] = useState<number | null>(null)
+  const [filters, setFilters] = useState<TableFilters>(EMPTY_FILTERS)
+  const [sort, setSort] = useState(DEFAULT_SORT)
   const selected = positions.find((position) => position.row === selectedRow) ?? null
   const market = usMarketStatus()
+  const tablePositions = useMemo(
+    () => sortPositions(applyFilters(positions, filters), sort),
+    [positions, filters, sort],
+  )
 
   if (!GOOGLE_CLIENT_ID || status === 'signed-out' || status === 'misconfigured') return <SignInView />
 
@@ -104,7 +121,7 @@ function Shell() {
         ) : (
           <>
             <SummaryChips positions={positions} onSelect={setSelectedRow} />
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <Tabs value={view} onValueChange={(value) => setView(value as TableView)}>
                 <TabsList>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -113,16 +130,31 @@ function Shell() {
                   <TabsTrigger value="calendar">Calendar</TabsTrigger>
                   <TabsTrigger value="chart">Chart</TabsTrigger>
                   <TabsTrigger value="sectors">Sectors</TabsTrigger>
+                  <TabsTrigger value="sectorOverview">Sectors overview</TabsTrigger>
                 </TabsList>
               </Tabs>
-              <WatchlistCalendar positions={positions} onSelect={setSelectedRow} />
+              <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+                {isTableView(view) ? (
+                  <TableFiltersBar positions={positions} filters={filters} onChange={setFilters} />
+                ) : null}
+                <WatchlistCalendar positions={positions} onSelect={setSelectedRow} />
+              </div>
             </div>
             {view === 'chart' ? (
               <HistoryChart positions={positions} history={snapshot.history} activeTicker={selected?.ticker} />
             ) : view === 'sectors' ? (
               <SectorChart positions={positions} onSelect={setSelectedRow} />
+            ) : view === 'sectorOverview' ? (
+              <SectorOverview />
             ) : (
-              <WatchlistTable positions={positions} view={view} selectedRow={selectedRow} onSelect={setSelectedRow} />
+              <WatchlistTable
+                positions={tablePositions}
+                view={view}
+                selectedRow={selectedRow}
+                onSelect={setSelectedRow}
+                sort={sort}
+                onToggleSort={(key) => setSort((current) => nextSort(current, key))}
+              />
             )}
           </>
         )}

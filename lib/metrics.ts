@@ -32,6 +32,7 @@ export const METRIC_HELP = {
   sector: 'Yahoo’s sector / industry label.',
   diversification: 'How your owned names split across Yahoo sectors, by market value. Switch to Names to count every ticker on the list.',
   sectorIdeas: 'When nothing is selected, individual stocks in the three Yahoo sectors you hold least. Click a sector in your mix to look at more names there. Already on your watchlist are skipped.',
+  sectorOverview: 'Min, median, average, and max valuation for stocks in that sector’s ETF (XLK, XLF, …). Refresh this tab on its own — it is not updated with your watchlist quotes.',
   holdingPct: 'Weight in the sector ETF Yahoo uses for this industry. How large the name is in the sector — not your portfolio weight.',
   earnings: 'Next earnings date from Yahoo, if they publish one.',
   exDiv: 'Next ex-dividend date. Buy on or after this date and you do not get that dividend.',
@@ -46,8 +47,9 @@ export const METRIC_HELP = {
   movers: 'The three largest percent moves on your list today, up or down.',
   shares: 'How many shares you already own. Leave blank if this is only a watch.',
   cost: 'Your average buy price per share. Used with last price to show gain or loss.',
-  intent: 'What you want to do next: Buy, Buy more, Trim, Sell all, Watch, or Hold. Buy and sell prices are exclusive — the plan picks one field, never both.',
+  intent: 'What you want to do next: Buy, Buy more, Trim, Sell all, Watch, or Hold. Buy and Sell plans keep one price field. Watch and Hold can keep both to monitor zones.',
   pnl: 'Unrealized gain or loss versus your average cost. Needs shares and a buy price.',
+  targetActivity: 'Every buy-under and sell-above change for this name, newest first.',
 } as const
 
 export type MetricId = keyof typeof METRIC_HELP

@@ -30,8 +30,14 @@ import { MetricTip } from '@/components/metric-tip'
 import { IntentSelect } from '@/components/intent-select'
 import { PlanTargets } from '@/components/plan-targets'
 import { YahooQuoteLink } from '@/components/yahoo-quote-link'
+import { EarningsMark } from '@/components/earnings-mark'
+import { AddSharesButton } from '@/components/add-shares-dialog'
+import { TargetActivityHistory } from '@/components/target-activity'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { MetricId } from '@/lib/metrics'
 import { useWatchlist } from '@/lib/use-watchlist'
+
+type DrawerTab = 'details' | 'activity'
 
 type PositionDrawerProps = {
   position: Position | null
@@ -52,9 +58,11 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
   const [intent, setIntent] = useState<Intent>('watch')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [tab, setTab] = useState<DrawerTab>('details')
 
   useEffect(() => {
     if (!position) return
+    setTab('details')
     setName(position.name)
     setTarget(position.target === null ? '' : String(position.target))
     setBuyUpTo(position.buyUpTo === null ? '' : String(position.buyUpTo))
@@ -67,7 +75,7 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
     setIntent(position.intent)
     setError(null)
     setPending(false)
-  }, [position?.row])
+  }, [position?.row, position?.shares, position?.cost, position?.intent])
 
   if (!position) return null
 
@@ -167,6 +175,7 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
             <p className="flex items-center gap-1 font-mono text-sm">
               <YahooQuoteLink ticker={position.ticker} />
               {position.ticker}
+              <EarningsMark earnings={position.earnings} />
             </p>
             <p className="text-base font-medium tracking-tight">{position.name || 'Unnamed'}</p>
             {position.sector ? <p className="text-xs text-muted-foreground">{position.sector}</p> : null}
@@ -206,6 +215,26 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
           </Button>
         </header>
 
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(value as DrawerTab)}
+          className="flex min-h-0 flex-1 flex-col gap-0"
+        >
+          <div className="border-b border-border px-5">
+            <TabsList variant="line" className="h-9 w-full">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="activity">
+                Activity
+                {position.targetActivity.length > 0 ? (
+                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                    {position.targetActivity.length}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="details" className="flex min-h-0 flex-1 flex-col">
         <form onSubmit={onSave} className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <div className="mb-6 flex items-end justify-between gap-3">
@@ -258,6 +287,7 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
                 <span>I already own this</span>
               </MetricTip>
             </label>
+            <AddSharesButton position={position} />
             {owned ? (
               <div className="grid grid-cols-2 gap-3">
                 <label className="grid gap-1.5 text-xs">
@@ -417,6 +447,12 @@ export function PositionDrawer({ position, onClose }: PositionDrawerProps) {
           </div>
         </footer>
         </form>
+          </TabsContent>
+
+          <TabsContent value="activity" className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <TargetActivityHistory events={position.targetActivity} currency={position.currency} />
+          </TabsContent>
+        </Tabs>
       </aside>
     </div>
   )

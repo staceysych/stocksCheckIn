@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { formatDate, formatNumber, formatPct, formatPrice } from '@/lib/format'
 import {
@@ -27,56 +27,28 @@ import { RangeBar } from '@/components/range-bar'
 import { MetricTip } from '@/components/metric-tip'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { YahooQuoteLink } from '@/components/yahoo-quote-link'
+import { EarningsMark } from '@/components/earnings-mark'
 import type { MetricId } from '@/lib/metrics'
+import type { SortKey, SortState } from '@/lib/table-query'
 
-export type TableView = 'overview' | 'range' | 'valuation' | 'calendar' | 'chart' | 'sectors'
+export type TableView = 'overview' | 'range' | 'valuation' | 'calendar' | 'chart' | 'sectors' | 'sectorOverview'
 
-const TICKER_COL = 'w-44 min-w-44 max-w-44'
-
-type SortKey =
-  | 'ticker'
-  | 'price'
-  | 'changepct'
-  | 'target'
-  | 'pctToTarget'
-  | 'sell'
-  | 'pctToSell'
-  | 'buyUpTo'
-  | 'sellUpTo'
-  | 'intent'
-  | 'pnlPct'
-  | 'volume'
-  | 'pe'
-  | 'forwardPe'
-  | 'peg'
-  | 'ma200'
-  | 'pctVsMa200'
-  | 'targetAvg'
-  | 'pctExpect'
+const TICKER_COL = 'w-48 min-w-48 max-w-48'
 
 type WatchlistTableProps = {
   positions: Position[]
   view: TableView
   selectedRow: number | null
   onSelect: (row: number) => void
+  sort: SortState
+  onToggleSort: (key: SortKey) => void
 }
 
-export function WatchlistTable({ positions, view, selectedRow, onSelect }: WatchlistTableProps) {
-  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null)
+export function WatchlistTable({ positions, view, selectedRow, onSelect, sort, onToggleSort }: WatchlistTableProps) {
+  const sections = useMemo(() => groupByPlanSection(positions), [positions])
 
-  const sections = useMemo(() => {
-    const sorted = sort
-      ? [...positions].sort((left, right) => compare(left[sort.key], right[sort.key], sort.dir))
-      : positions
-    return groupByPlanSection(sorted)
-  }, [positions, sort])
-
-  const toggleSort = (key: SortKey) => {
-    setSort((current) => {
-      if (!current || current.key !== key) return { key, dir: key === 'ticker' ? 'asc' : 'desc' }
-      if (current.dir === 'desc') return { key, dir: 'asc' }
-      return null
-    })
+  if (sections.length === 0) {
+    return <p className="py-16 text-center text-sm text-muted-foreground">No names match these filters.</p>
   }
 
   return (
@@ -93,7 +65,7 @@ export function WatchlistTable({ positions, view, selectedRow, onSelect }: Watch
                 <colgroup>
                   <col className={TICKER_COL} />
                 </colgroup>
-                <ColumnHeads view={view} section={section.id} sort={sort} onToggle={toggleSort} />
+                <ColumnHeads view={view} section={section.id} sort={sort} onToggle={onToggleSort} />
                 <tbody>
                   {section.positions.map((position) => (
                     <PositionRow
@@ -154,10 +126,13 @@ function PositionRow({
           selected && 'bg-accent hover:bg-accent group-hover:bg-accent',
         )}
       >
-        <span className="flex items-center gap-1.5">
+        <span className="flex w-full min-w-0 items-center gap-1.5">
           <YahooQuoteLink ticker={position.ticker} />
           <TickerLabel ticker={position.ticker} name={position.name} />
           <TickerTag position={position} />
+          <span className="ml-auto flex shrink-0 items-center">
+            <EarningsMark earnings={position.earnings} />
+          </span>
         </span>
       </td>
       {view === 'overview' ? (
@@ -503,90 +478,72 @@ function ColumnHeads({
 }: {
   view: TableView
   section: PlanSection
-  sort: { key: SortKey; dir: 'asc' | 'desc' } | null
+  sort: SortState
   onToggle: (key: SortKey) => void
 }) {
   return (
     <thead className="bg-card text-xs tracking-wide text-muted-foreground uppercase">
       <tr className="border-b border-border">
-        <SortHead metric="ticker" label="Ticker" active={sort?.key === 'ticker'} dir={sort?.dir} onClick={() => onToggle('ticker')} sticky />
+        <SortHead metric="ticker" label="Ticker" active={sort.key === 'ticker'} dir={sort.dir} onClick={() => onToggle('ticker')} sticky />
         {view === 'overview' ? (
           <>
-            <SortHead metric="price" label="Price" active={sort?.key === 'price'} dir={sort?.dir} onClick={() => onToggle('price')} numeric />
-            <SortHead metric="changepct" label="Chg" active={sort?.key === 'changepct'} dir={sort?.dir} onClick={() => onToggle('changepct')} numeric />
-            <SortHead metric="targetAvg" label="1Y tgt" active={sort?.key === 'targetAvg'} dir={sort?.dir} onClick={() => onToggle('targetAvg')} numeric />
-            <SortHead metric="pctExpect" label="% to 1Y" active={sort?.key === 'pctExpect'} dir={sort?.dir} onClick={() => onToggle('pctExpect')} numeric />
+            <SortHead metric="price" label="Price" active={sort.key === 'price'} dir={sort.dir} onClick={() => onToggle('price')} numeric />
+            <SortHead metric="changepct" label="Chg" active={sort.key === 'changepct'} dir={sort.dir} onClick={() => onToggle('changepct')} numeric />
+            <SortHead metric="targetAvg" label="1Y tgt" active={sort.key === 'targetAvg'} dir={sort.dir} onClick={() => onToggle('targetAvg')} numeric />
+            <SortHead metric="pctExpect" label="% to 1Y" active={sort.key === 'pctExpect'} dir={sort.dir} onClick={() => onToggle('pctExpect')} numeric />
             {sectionShowsBuyTarget(section) ? (
               <>
-                <SortHead metric="target" label="Buy target" active={sort?.key === 'target'} dir={sort?.dir} onClick={() => onToggle('target')} numeric />
-                <SortHead metric="pctToTarget" label="% to tgt" active={sort?.key === 'pctToTarget'} dir={sort?.dir} onClick={() => onToggle('pctToTarget')} numeric />
-                <SortHead metric="buyUpTo" label="Buy up to" active={sort?.key === 'buyUpTo'} dir={sort?.dir} onClick={() => onToggle('buyUpTo')} numeric />
+                <SortHead metric="target" label="Buy target" active={sort.key === 'target'} dir={sort.dir} onClick={() => onToggle('target')} numeric />
+                <SortHead metric="pctToTarget" label="% to tgt" active={sort.key === 'pctToTarget'} dir={sort.dir} onClick={() => onToggle('pctToTarget')} numeric />
+                <SortHead metric="buyUpTo" label="Buy up to" active={sort.key === 'buyUpTo'} dir={sort.dir} onClick={() => onToggle('buyUpTo')} numeric />
               </>
             ) : null}
             {sectionShowsSellTarget(section) ? (
               <>
-                <SortHead metric="sell" label="Sell target" active={sort?.key === 'sell'} dir={sort?.dir} onClick={() => onToggle('sell')} numeric />
-                <SortHead metric="pctToSell" label="% to tgt" active={sort?.key === 'pctToSell'} dir={sort?.dir} onClick={() => onToggle('pctToSell')} numeric />
-                <SortHead metric="sellUpTo" label="Sell up to" active={sort?.key === 'sellUpTo'} dir={sort?.dir} onClick={() => onToggle('sellUpTo')} numeric />
+                <SortHead metric="sell" label="Sell target" active={sort.key === 'sell'} dir={sort.dir} onClick={() => onToggle('sell')} numeric />
+                <SortHead metric="pctToSell" label="% to tgt" active={sort.key === 'pctToSell'} dir={sort.dir} onClick={() => onToggle('pctToSell')} numeric />
+                <SortHead metric="sellUpTo" label="Sell up to" active={sort.key === 'sellUpTo'} dir={sort.dir} onClick={() => onToggle('sellUpTo')} numeric />
               </>
             ) : null}
-            <SortHead metric="intent" label="Plan" active={sort?.key === 'intent'} dir={sort?.dir} onClick={() => onToggle('intent')} />
-            <SortHead metric="pnl" label="P/L" active={sort?.key === 'pnlPct'} dir={sort?.dir} onClick={() => onToggle('pnlPct')} numeric />
+            <SortHead metric="intent" label="Plan" active={sort.key === 'intent'} dir={sort.dir} onClick={() => onToggle('intent')} />
+            <SortHead metric="pnl" label="P/L" active={sort.key === 'pnlPct'} dir={sort.dir} onClick={() => onToggle('pnlPct')} numeric />
           </>
         ) : null}
         {view === 'range' ? (
           <>
-            <SortHead metric="price" label="Price" active={sort?.key === 'price'} dir={sort?.dir} onClick={() => onToggle('price')} numeric />
-            <Head metric="ma20" label="MA20%" numeric />
-            <Head metric="ma50" label="MA50%" numeric />
-            <Head metric="ma100" label="MA100%" numeric />
-            <SortHead metric="ma200" label="MA200%" active={sort?.key === 'pctVsMa200'} dir={sort?.dir} onClick={() => onToggle('pctVsMa200')} numeric />
-            <Head metric="range52" label="52w" />
-            <Head metric="low52" label="Low" numeric />
-            <Head metric="high52" label="High" numeric />
+            <SortHead metric="price" label="Price" active={sort.key === 'price'} dir={sort.dir} onClick={() => onToggle('price')} numeric />
+            <SortHead metric="ma20" label="MA20%" active={sort.key === 'ma20'} dir={sort.dir} onClick={() => onToggle('ma20')} numeric />
+            <SortHead metric="ma50" label="MA50%" active={sort.key === 'ma50'} dir={sort.dir} onClick={() => onToggle('ma50')} numeric />
+            <SortHead metric="ma100" label="MA100%" active={sort.key === 'ma100'} dir={sort.dir} onClick={() => onToggle('ma100')} numeric />
+            <SortHead metric="ma200" label="MA200%" active={sort.key === 'ma200'} dir={sort.dir} onClick={() => onToggle('ma200')} numeric />
+            <SortHead metric="range52" label="52w" active={sort.key === 'range52'} dir={sort.dir} onClick={() => onToggle('range52')} />
+            <SortHead metric="low52" label="Low" active={sort.key === 'low52'} dir={sort.dir} onClick={() => onToggle('low52')} numeric />
+            <SortHead metric="high52" label="High" active={sort.key === 'high52'} dir={sort.dir} onClick={() => onToggle('high52')} numeric />
           </>
         ) : null}
         {view === 'valuation' ? (
           <>
-            <SortHead metric="pe" label="PE" active={sort?.key === 'pe'} dir={sort?.dir} onClick={() => onToggle('pe')} numeric />
-            <SortHead metric="forwardPe" label="Fwd PE" active={sort?.key === 'forwardPe'} dir={sort?.dir} onClick={() => onToggle('forwardPe')} numeric />
-            <SortHead metric="peg" label="PEG" active={sort?.key === 'peg'} dir={sort?.dir} onClick={() => onToggle('peg')} numeric />
-            <Head metric="priceToBook" label="P/B" numeric />
-            <Head metric="priceToSales" label="P/S" numeric />
-            <Head metric="divYield" label="Yield" numeric />
-            <Head metric="shortRatio" label="Short" numeric />
-            <Head metric="targetAvg" label="1Y tgt" numeric />
-            <SortHead metric="pctExpect" label="% expect" active={sort?.key === 'pctExpect'} dir={sort?.dir} onClick={() => onToggle('pctExpect')} numeric />
+            <SortHead metric="pe" label="PE" active={sort.key === 'pe'} dir={sort.dir} onClick={() => onToggle('pe')} numeric />
+            <SortHead metric="forwardPe" label="Fwd PE" active={sort.key === 'forwardPe'} dir={sort.dir} onClick={() => onToggle('forwardPe')} numeric />
+            <SortHead metric="peg" label="PEG" active={sort.key === 'peg'} dir={sort.dir} onClick={() => onToggle('peg')} numeric />
+            <SortHead metric="priceToBook" label="P/B" active={sort.key === 'priceToBook'} dir={sort.dir} onClick={() => onToggle('priceToBook')} numeric />
+            <SortHead metric="priceToSales" label="P/S" active={sort.key === 'priceToSales'} dir={sort.dir} onClick={() => onToggle('priceToSales')} numeric />
+            <SortHead metric="divYield" label="Yield" active={sort.key === 'divYield'} dir={sort.dir} onClick={() => onToggle('divYield')} numeric />
+            <SortHead metric="shortRatio" label="Short" active={sort.key === 'shortRatio'} dir={sort.dir} onClick={() => onToggle('shortRatio')} numeric />
+            <SortHead metric="targetAvg" label="1Y tgt" active={sort.key === 'targetAvg'} dir={sort.dir} onClick={() => onToggle('targetAvg')} numeric />
+            <SortHead metric="pctExpect" label="% expect" active={sort.key === 'pctExpect'} dir={sort.dir} onClick={() => onToggle('pctExpect')} numeric />
           </>
         ) : null}
         {view === 'calendar' ? (
           <>
-            <Head metric="sector" label="Sector" />
-            <Head metric="earnings" label="Earnings" />
-            <Head metric="exDiv" label="Ex-div" />
-            <Head metric="tradetime" label="As of" />
+            <SortHead metric="sector" label="Sector" active={sort.key === 'sector'} dir={sort.dir} onClick={() => onToggle('sector')} />
+            <SortHead metric="earnings" label="Earnings" active={sort.key === 'earnings'} dir={sort.dir} onClick={() => onToggle('earnings')} />
+            <SortHead metric="exDiv" label="Ex-div" active={sort.key === 'exDiv'} dir={sort.dir} onClick={() => onToggle('exDiv')} />
+            <SortHead metric="tradetime" label="As of" active={sort.key === 'tradetime'} dir={sort.dir} onClick={() => onToggle('tradetime')} />
           </>
         ) : null}
       </tr>
     </thead>
-  )
-}
-
-function Head({
-  metric,
-  label,
-  numeric,
-}: {
-  metric: MetricId
-  label: string
-  numeric?: boolean
-}) {
-  return (
-    <th className={cn('px-3 py-2 font-medium', numeric ? 'text-right' : 'text-left')}>
-      <MetricTip metric={metric}>
-        <span>{label}</span>
-      </MetricTip>
-    </th>
   )
 }
 
@@ -601,14 +558,15 @@ function SortHead({
 }: {
   metric: MetricId
   label: string
-  active?: boolean
-  dir?: 'asc' | 'desc'
+  active: boolean
+  dir: 'asc' | 'desc'
   onClick: () => void
   numeric?: boolean
   sticky?: boolean
 }) {
   return (
     <th
+      aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
       className={cn(
         'px-3 py-2 font-medium',
         numeric ? 'text-right' : 'text-left',
@@ -623,13 +581,4 @@ function SortHead({
       </MetricTip>
     </th>
   )
-}
-
-function compare(a: unknown, b: unknown, dir: 'asc' | 'desc') {
-  const empty = (value: unknown) => value === null || value === undefined || value === ''
-  if (empty(a) && empty(b)) return 0
-  if (empty(a)) return 1
-  if (empty(b)) return -1
-  if (typeof a === 'number' && typeof b === 'number') return dir === 'asc' ? a - b : b - a
-  return dir === 'asc' ? String(a).localeCompare(String(b)) : String(b).localeCompare(String(a))
 }
