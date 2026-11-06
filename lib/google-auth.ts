@@ -146,19 +146,34 @@ async function requestToken(prompt: '' | 'consent' | 'select_account') {
   if (!client) throw new Error('Google Identity is still loading. Try again in a moment.')
 
   return new Promise<GoogleTokenResponse>((resolve, reject) => {
+    let settled = false
+    let closeTimer: ReturnType<typeof setTimeout> | null = null
+
+    const finish = (work: () => void) => {
+      if (settled) return
+      settled = true
+      if (closeTimer) clearTimeout(closeTimer)
+      work()
+    }
+
     client.callback = (response) => {
-      if (response.error) {
-        reject(new Error(response.error_description || response.error))
-        return
-      }
-      resolve(response)
+      finish(() => {
+        if (response.error) {
+          reject(new Error(response.error_description || response.error))
+          return
+        }
+        resolve(response)
+      })
     }
     client.error_callback = (error) => {
+      // GIS sometimes reports popup_closed right as a successful token arrives.
       if (error.type === 'popup_closed') {
-        reject(new Error('Google sign-in was closed before finishing.'))
+        closeTimer = setTimeout(() => {
+          finish(() => reject(new Error('Google sign-in was closed before finishing.')))
+        }, 750)
         return
       }
-      reject(new Error(error.message || 'Google sign-in failed.'))
+      finish(() => reject(new Error(error.message || 'Google sign-in failed.')))
     }
     client.requestAccessToken({
       prompt,
@@ -202,7 +217,9 @@ export async function signIn() {
     return
   }
   try {
-    const response = await requestToken('consent')
+    // Empty prompt still shows consent when this account has no grant yet.
+    // Forcing "consent" every time makes GIS more likely to close without a token.
+    const response = await requestToken('')
     await applyToken(response)
   } catch (error) {
     setSession({
